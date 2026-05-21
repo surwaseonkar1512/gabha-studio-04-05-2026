@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, Filter, Phone, Mail, MoreVertical, LayoutGrid, List as ListIcon, GripVertical } from 'lucide-react';
+import { Plus, Search, Filter, Phone, Mail, MoreVertical, LayoutGrid, List as ListIcon, GripVertical, FileText, Download, Send, Trash2, Calculator, X } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import toast from 'react-hot-toast';
 import api from '../../api/axiosInstance';
+import ConfirmModal from '../../components/ui/ConfirmModal';
 
 interface Lead {
   _id: string;
@@ -13,6 +14,13 @@ interface Lead {
   source: string;
   stage: string;
   createdAt: string;
+  hasQuotation?: boolean;
+  quotationSkipped?: boolean;
+}
+
+interface QuotationItem {
+  description: string;
+  amount: string | number;
 }
 
 const STAGES = ['New Lead', 'Contacted', 'Quote Sent', 'Booking', 'Completed'];
@@ -20,7 +28,72 @@ const STAGES = ['New Lead', 'Contacted', 'Quote Sent', 'Booking', 'Completed'];
 const LeadsList = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'board'>('board');
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [newLeadData, setNewLeadData] = useState({ name: '', phone: '', email: '', message: '' });
+  
+  // Manage Lead Modal State
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [activeTab, setActiveTab] = useState<'details' | 'quotations'>('details');
+  const [isQuoting, setIsQuoting] = useState(false);
+  const [quoteItems, setQuoteItems] = useState<QuotationItem[]>([{ description: '', amount: '' }]);
+  const [gstEnabled, setGstEnabled] = useState(false);
+
+  // Advance Payment Modal State
+  const [advanceModalState, setAdvanceModalState] = useState<{ isOpen: boolean; leadId: string; quotationId?: string; totalAmount: number | string } | null>(null);
+  const [advancePaymentData, setAdvancePaymentData] = useState({ amount: '', date: new Date().toISOString().split('T')[0], method: 'UPI', reference: '', notes: '' });
+  const [paymentProofs, setPaymentProofs] = useState<File[]>([]);
+
+  // Quote Intercept Modal State
+  const [quoteInterceptState, setQuoteInterceptState] = useState<{ isOpen: boolean; leadId: string } | null>(null);
+
+  // Delete Confirm Modal State
+  const [deleteConfirmState, setDeleteConfirmState] = useState<string | null>(null);
+
   const queryClient = useQueryClient();
+
+  const deleteLeadMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await api.delete(`/leads/${id}`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['leads'] });
+      toast.success('Lead deleted successfully');
+      setSelectedLead(null);
+      setDeleteConfirmState(null);
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to delete lead');
+      setDeleteConfirmState(null);
+    }
+  });
+
+  const createBookingMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const formData = new FormData();
+      formData.append('leadId', data.leadId);
+      if (data.quotationId) formData.append('quotationId', data.quotationId);
+      formData.append('totalAmount', data.totalAmount.toString());
+      formData.append('payment', JSON.stringify(data.payment));
+      
+      if (data.proofs) {
+        data.proofs.forEach((file: File) => formData.append('proofs', file));
+      }
+
+      const res = await api.post('/bookings/advance', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['leads'] });
+      setAdvanceModalState(null);
+      setAdvancePaymentData({ amount: '', date: new Date().toISOString().split('T')[0], method: 'UPI', reference: '', notes: '' });
+      setPaymentProofs([]);
+      toast.success('Booking created & Advance payment recorded');
+    },
+    onError: () => toast.error('Failed to create booking')
+  });
 
   const { data: leads, isLoading, error } = useQuery<Lead[]>({
     queryKey: ['leads'],
@@ -30,21 +103,61 @@ const LeadsList = () => {
     }
   });
 
+  const { data: quotations, refetch: refetchQuotations } = useQuery({
+    queryKey: ['quotations', selectedLead?._id],
+    queryFn: async () => {
+      const { data } = await api.get(`/quotations/lead/${selectedLead?._id}`);
+      return data;
+    },
+    enabled: !!selectedLead && activeTab === 'quotations'
+  });
+
   const updateLeadStageMutation = useMutation({
-    mutationFn: async ({ id, stage }: { id: string, stage: string }) => {
-      const { data } = await api.put(`/leads/${id}`, { stage });
+    mutationFn: async ({ id, stage, quotationSkipped }: { id: string, stage: string, quotationSkipped?: boolean }) => {
+      const payload: any = { stage };
+      if (quotationSkipped !== undefined) payload.quotationSkipped = quotationSkipped;
+      const { data } = await api.put(`/leads/${id}`, payload);
       return data;
     },
     onSuccess: () => {
-      // Background refetch is handled automatically by optimistic update, but we can invalidate to be safe
       queryClient.invalidateQueries({ queryKey: ['leads'] });
     },
-    onError: (err, variables, context: any) => {
-      toast.error('Failed to update lead stage');
+    onError: (err: any, variables, context: any) => {
+      toast.error(err.response?.data?.message || 'Failed to update lead stage');
       if (context?.previousLeads) {
         queryClient.setQueryData(['leads'], context.previousLeads);
       }
     }
+  });
+
+  const createLeadMutation = useMutation({
+    mutationFn: async (leadData: typeof newLeadData) => {
+      const { data } = await api.post('/leads', { ...leadData, source: 'Manual Entry' });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['leads'] });
+      setIsAddModalOpen(false);
+      setNewLeadData({ name: '', phone: '', email: '', message: '' });
+      toast.success('Lead added successfully');
+    },
+    onError: () => toast.error('Failed to add lead')
+  });
+
+  const createQuotationMutation = useMutation({
+    mutationFn: async (quoteData: any) => {
+      const { data } = await api.post('/quotations', quoteData);
+      return data;
+    },
+    onSuccess: () => {
+      toast.success('Quotation generated successfully');
+      queryClient.invalidateQueries({ queryKey: ['leads'] });
+      refetchQuotations();
+      setIsQuoting(false);
+      setQuoteItems([{ description: '', amount: '' }]);
+      setGstEnabled(false);
+    },
+    onError: () => toast.error('Failed to create quotation')
   });
 
   const getStageColor = (stage: string) => {
@@ -81,9 +194,41 @@ const LeadsList = () => {
     if (destination.droppableId === source.droppableId && destination.index === source.index) return;
 
     const newStage = destination.droppableId;
+    const oldStage = source.droppableId;
     const leadId = draggableId;
 
-    // Optimistic Update
+    // Strict forward-only transition check
+    const currentIndex = STAGES.indexOf(oldStage);
+    const newIndex = STAGES.indexOf(newStage);
+
+    if (newIndex !== currentIndex + 1) {
+      toast.error(`Invalid move. You can only move from ${oldStage} to ${STAGES[currentIndex + 1] || 'nowhere'}.`);
+      return;
+    }
+
+    if (newStage === 'Quote Sent') {
+      // Intercept Contacted -> Quote Sent
+      setQuoteInterceptState({ isOpen: true, leadId });
+      return;
+    }
+
+    if (newStage === 'Booking') {
+      // Intercept! Open Advance Payment Modal
+      try {
+        const { data: quotes } = await api.get(`/quotations/lead/${leadId}`);
+        let totalAmount = '';
+        let quotationId;
+        if (quotes && quotes.length > 0) {
+          totalAmount = quotes[0].total; // Using the latest quote
+          quotationId = quotes[0]._id;
+        }
+        setAdvanceModalState({ isOpen: true, leadId, quotationId, totalAmount });
+      } catch (err) {
+        setAdvanceModalState({ isOpen: true, leadId, totalAmount: '' });
+      }
+      return; // Stop standard drag logic
+    }
+
     const previousLeads = queryClient.getQueryData<Lead[]>(['leads']);
     if (previousLeads) {
       const updatedLeads = previousLeads.map(l => 
@@ -95,6 +240,36 @@ const LeadsList = () => {
     updateLeadStageMutation.mutate({ id: leadId, stage: newStage });
   };
 
+  const handleQuoteSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedLead) return;
+    
+    // Validate items
+    const validItems = quoteItems.filter(item => item.description.trim() !== '' && item.amount !== '');
+    if (validItems.length === 0) {
+      toast.error('Please add at least one valid item');
+      return;
+    }
+
+    createQuotationMutation.mutate({
+      leadId: selectedLead._id,
+      items: validItems.map(item => ({ ...item, amount: Number(item.amount) })),
+      gstEnabled
+    });
+  };
+
+  const addQuoteItem = () => setQuoteItems([...quoteItems, { description: '', amount: '' }]);
+  const removeQuoteItem = (index: number) => setQuoteItems(quoteItems.filter((_, i) => i !== index));
+  const updateQuoteItem = (index: number, field: keyof QuotationItem, value: string) => {
+    const newItems = [...quoteItems];
+    newItems[index][field] = value;
+    setQuoteItems(newItems);
+  };
+
+  const subTotal = quoteItems.reduce((acc, item) => acc + (Number(item.amount) || 0), 0);
+  const gstAmount = gstEnabled ? subTotal * 0.18 : 0;
+  const grandTotal = subTotal + gstAmount;
+
   if (isLoading) return <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>;
   if (error) return <div className="text-red-500">Error loading leads</div>;
 
@@ -103,7 +278,7 @@ const LeadsList = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">CRM Leads</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage your inquiries and pipeline</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage your inquiries, pipeline and quotations</p>
         </div>
         <div className="flex items-center gap-4">
           <div className="bg-gray-100 dark:bg-zinc-800 p-1 rounded-lg flex items-center">
@@ -120,7 +295,10 @@ const LeadsList = () => {
               <LayoutGrid size={18} />
             </button>
           </div>
-          <button className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium">
+          <button 
+            onClick={() => setIsAddModalOpen(true)}
+            className="flex items-center px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors shadow-sm font-medium"
+          >
             <Plus size={18} className="mr-2" /> Add Lead
           </button>
         </div>
@@ -135,7 +313,7 @@ const LeadsList = () => {
               placeholder="Search leads by name or phone..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-white dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+              className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-sm transition-all"
             />
           </div>
           <button className="flex items-center px-3 py-2 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors text-sm font-medium">
@@ -154,9 +332,9 @@ const LeadsList = () => {
                 
                 return (
                   <div key={stage} className="w-80 flex flex-col bg-gray-50 dark:bg-zinc-950/50 rounded-xl border border-gray-200 dark:border-zinc-800/50 max-h-full">
-                    <div className="p-4 border-b border-gray-200 dark:border-zinc-800/50 flex justify-between items-center">
+                    <div className="p-4 border-b border-gray-200 dark:border-zinc-800/50 flex justify-between items-center bg-white/50 dark:bg-zinc-900/50 rounded-t-xl">
                       <h3 className="font-bold text-gray-800 dark:text-gray-200">{stage}</h3>
-                      <span className="bg-white dark:bg-zinc-800 text-gray-500 dark:text-gray-400 text-xs font-bold px-2 py-1 rounded-full border border-gray-200 dark:border-zinc-700">
+                      <span className="bg-white dark:bg-zinc-800 text-gray-500 dark:text-gray-400 text-xs font-bold px-2 py-1 rounded-full border border-gray-200 dark:border-zinc-700 shadow-sm">
                         {stageLeads.length}
                       </span>
                     </div>
@@ -166,7 +344,7 @@ const LeadsList = () => {
                         <div
                           ref={provided.innerRef}
                           {...provided.droppableProps}
-                          className={`flex-1 p-3 overflow-y-auto min-h-[150px] transition-colors ${snapshot.isDraggingOver ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
+                          className={`flex-1 p-3 overflow-y-auto min-h-[150px] transition-colors ${snapshot.isDraggingOver ? 'bg-amber-50/50 dark:bg-amber-900/10' : ''}`}
                         >
                           {stageLeads.map((lead, index) => (
                             <Draggable key={lead._id} draggableId={lead._id} index={index}>
@@ -175,7 +353,8 @@ const LeadsList = () => {
                                   ref={provided.innerRef}
                                   {...provided.draggableProps}
                                   {...provided.dragHandleProps}
-                                  className={`mb-3 bg-white dark:bg-zinc-900 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-4 border-t-4 ${getStageBorder(lead.stage)} ${snapshot.isDragging ? 'shadow-lg ring-2 ring-blue-500 opacity-90' : 'hover:border-gray-300 dark:hover:border-zinc-600'}`}
+                                  onClick={() => setSelectedLead(lead)}
+                                  className={`mb-3 bg-white dark:bg-zinc-900 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-4 border-t-4 cursor-pointer transition-all ${getStageBorder(lead.stage)} ${snapshot.isDragging ? 'shadow-xl ring-2 ring-amber-500 opacity-90 scale-105' : 'hover:border-gray-300 dark:hover:border-zinc-600 hover:shadow-md'}`}
                                 >
                                   <div className="flex justify-between items-start mb-2">
                                     <h4 className="font-bold text-gray-900 dark:text-white text-sm">{lead.name}</h4>
@@ -185,19 +364,25 @@ const LeadsList = () => {
                                     <div className="flex items-center text-xs text-gray-600 dark:text-gray-400">
                                       <Phone size={12} className="mr-1.5" /> {lead.phone}
                                     </div>
-                                    {lead.email && (
-                                      <div className="flex items-center text-xs text-gray-600 dark:text-gray-400">
-                                        <Mail size={12} className="mr-1.5" /> {lead.email}
-                                      </div>
-                                    )}
                                   </div>
-                                  <div className="flex justify-between items-center text-xs">
-                                    <span className="px-2 py-1 bg-gray-100 dark:bg-zinc-800 text-gray-600 dark:text-gray-300 rounded-md">
-                                      {lead.source}
-                                    </span>
-                                    <span className="text-gray-400 dark:text-gray-500">
-                                      {new Date(lead.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                                    </span>
+                                  <div className="flex justify-between items-center text-xs mt-3 pt-3 border-t border-gray-50 dark:border-zinc-800/50">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-gray-400 dark:text-zinc-500 font-medium">
+                                        {new Date(lead.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      {lead.hasQuotation && (
+                                        <span className="flex items-center px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded text-[10px] font-bold tracking-wide uppercase">
+                                          <FileText size={10} className="mr-1" /> Quoted
+                                        </span>
+                                      )}
+                                      {lead.quotationSkipped && (
+                                        <span className="flex items-center px-1.5 py-0.5 bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-gray-400 rounded text-[10px] font-bold tracking-wide uppercase">
+                                          Skipped Quote
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
                               )}
@@ -225,8 +410,8 @@ const LeadsList = () => {
                   <tr className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider border-b border-gray-200 dark:border-zinc-800">
                     <th className="px-6 py-4 font-medium">Lead Name</th>
                     <th className="px-6 py-4 font-medium">Contact</th>
-                    <th className="px-6 py-4 font-medium">Source</th>
                     <th className="px-6 py-4 font-medium">Stage</th>
+                    <th className="px-6 py-4 font-medium">Quotation</th>
                     <th className="px-6 py-4 font-medium">Date</th>
                     <th className="px-6 py-4 font-medium text-right">Actions</th>
                   </tr>
@@ -241,26 +426,34 @@ const LeadsList = () => {
                         <div className="flex items-center text-sm text-gray-600 dark:text-gray-400 mb-1">
                           <Phone size={14} className="mr-2 text-gray-400 dark:text-gray-500" /> {lead.phone}
                         </div>
-                        {lead.email && (
-                          <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                            <Mail size={14} className="mr-2 text-gray-400 dark:text-gray-500" /> {lead.email}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                        {lead.source}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStageColor(lead.stage)}`}>
                           {lead.stage}
                         </span>
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {lead.hasQuotation ? (
+                           <span className="flex items-center text-blue-600 dark:text-blue-400 text-sm font-medium">
+                             <FileText size={14} className="mr-1" /> Quoted
+                           </span>
+                        ) : lead.quotationSkipped ? (
+                           <span className="flex items-center text-gray-500 dark:text-gray-400 text-sm font-medium">
+                             Skipped
+                           </span>
+                        ) : (
+                           <span className="text-gray-400 dark:text-zinc-500 text-sm">-</span>
+                        )}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                         {new Date(lead.createdAt).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button className="text-gray-400 hover:text-gray-900 dark:hover:text-white">
-                          <MoreVertical size={18} />
+                        <button 
+                          onClick={() => setSelectedLead(lead)}
+                          className="px-3 py-1.5 bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors"
+                        >
+                          Manage
                         </button>
                       </td>
                     </tr>
@@ -279,6 +472,579 @@ const LeadsList = () => {
           </div>
         </div>
       )}
+
+      {/* MANAGE LEAD MODAL */}
+      {selectedLead && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-zinc-950 w-full max-w-2xl h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+            {/* Header */}
+            <div className="px-6 py-5 border-b border-gray-100 dark:border-zinc-800 flex justify-between items-center bg-gray-50 dark:bg-zinc-900">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">{selectedLead.name}</h2>
+                <div className="flex items-center gap-3 mt-2">
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${getStageColor(selectedLead.stage)}`}>
+                    {selectedLead.stage}
+                  </span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center">
+                    <Phone size={12} className="mr-1" /> {selectedLead.phone}
+                  </span>
+                  {selectedLead.quotationSkipped && (
+                    <span className="px-2.5 py-1 bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-gray-400 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                      No Quotation Created
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {(selectedLead.stage === 'New Lead' || selectedLead.stage === 'Contacted') && (
+                  <button 
+                    onClick={() => setDeleteConfirmState(selectedLead._id)}
+                    disabled={deleteLeadMutation.isPending}
+                    className="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded-full transition-colors disabled:opacity-50"
+                    title="Delete Lead"
+                  >
+                    <Trash2 size={20} />
+                  </button>
+                )}
+                <button 
+                  onClick={() => {
+                    setSelectedLead(null);
+                    setIsQuoting(false);
+                  }}
+                  className="p-2 hover:bg-gray-200 dark:hover:bg-zinc-800 rounded-full transition-colors text-gray-500 dark:text-gray-400"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+            </div>
+
+            {/* Tabs */}
+            <div className="px-6 border-b border-gray-100 dark:border-zinc-800 flex gap-6">
+              <button 
+                onClick={() => { setActiveTab('details'); setIsQuoting(false); }}
+                className={`py-4 text-sm font-medium border-b-2 transition-colors ${activeTab === 'details' ? 'border-amber-500 text-amber-600 dark:text-amber-500' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
+              >
+                Lead Details
+              </button>
+              <button 
+                onClick={() => setActiveTab('quotations')}
+                className={`py-4 text-sm font-medium border-b-2 transition-colors flex items-center ${activeTab === 'quotations' ? 'border-amber-500 text-amber-600 dark:text-amber-500' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
+              >
+                <FileText size={16} className="mr-2" /> Quotations
+                {selectedLead.hasQuotation && <span className="ml-2 w-2 h-2 rounded-full bg-blue-500"></span>}
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+              
+              {activeTab === 'details' && (
+                <div className="space-y-6">
+                  <div className="bg-gray-50 dark:bg-zinc-900/50 p-5 rounded-xl border border-gray-100 dark:border-zinc-800">
+                    <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Contact Information</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Phone Number</p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedLead.phone}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Email Address</p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedLead.email || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Lead Source</p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedLead.source}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Date Added</p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">{new Date(selectedLead.createdAt).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'quotations' && (
+                <div>
+                  {!isQuoting ? (
+                    <div>
+                      <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white">Quotation History</h3>
+                        <button 
+                          onClick={() => setIsQuoting(true)}
+                          disabled={selectedLead.stage === 'New Lead' || selectedLead.stage === 'Completed'}
+                          className="flex items-center px-4 py-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-lg hover:bg-zinc-800 dark:hover:bg-gray-100 transition-colors text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                        >
+                          <Plus size={16} className="mr-2" /> Create Quotation
+                        </button>
+                      </div>
+
+                      {(selectedLead.stage === 'New Lead' || selectedLead.stage === 'Completed') && (
+                        <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 p-4 rounded-lg text-sm mb-6 flex items-start border border-blue-100 dark:border-blue-900/30">
+                          <Calculator size={18} className="mr-3 mt-0.5 shrink-0" />
+                          <p>Quotation creation is disabled for leads in the <strong>{selectedLead.stage}</strong> stage. Please move the lead to "Contacted" or another active stage to generate a quote.</p>
+                        </div>
+                      )}
+
+                      {quotations?.length === 0 ? (
+                        <div className="text-center py-12 border-2 border-dashed border-gray-200 dark:border-zinc-800 rounded-xl">
+                          <FileText size={48} className="mx-auto text-gray-300 dark:text-zinc-700 mb-4" />
+                          <p className="text-gray-500 dark:text-gray-400 font-medium">No quotations generated yet.</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {quotations?.map((quote: any) => (
+                            <div key={quote._id} className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
+                              <div className="flex justify-between items-start mb-4">
+                                <div>
+                                  <h4 className="font-bold text-gray-900 dark:text-white flex items-center">
+                                    {quote.quotationNumber}
+                                    {quote.gstEnabled && <span className="ml-2 px-2 py-0.5 bg-gray-100 dark:bg-zinc-800 text-gray-600 dark:text-gray-400 text-[10px] rounded uppercase tracking-wider font-bold border border-gray-200 dark:border-zinc-700">GST Applied</span>}
+                                  </h4>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{new Date(quote.createdAt).toLocaleString()}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">Total Amount</p>
+                                  <p className="text-lg font-bold text-amber-600 dark:text-amber-500">₹{quote.total.toLocaleString('en-IN')}</p>
+                                </div>
+                              </div>
+                              <div className="flex gap-3 pt-4 border-t border-gray-100 dark:border-zinc-800">
+                                <button 
+                                  onClick={() => window.open(`http://localhost:5000/api/quotations/${quote._id}/pdf`, '_blank')}
+                                  className="flex-1 flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-zinc-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors text-sm font-medium"
+                                >
+                                  <Download size={16} className="mr-2" /> Download PDF
+                                </button>
+                                <button 
+                                  onClick={() => {
+                                    const text = `Hello ${selectedLead.name},\n\nHere is your quotation (${quote.quotationNumber}) for ₹${quote.total.toLocaleString('en-IN')}.\n\nYou can download the PDF here: http://localhost:5000/api/quotations/${quote._id}/pdf\n\nBest regards,\nGabha Studio`;
+                                    window.open(`https://wa.me/${selectedLead.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(text)}`, '_blank');
+                                  }}
+                                  className="flex-1 flex items-center justify-center px-4 py-2 bg-[#25D366] text-white rounded-lg hover:bg-[#1ebe5d] transition-colors text-sm font-medium shadow-sm shadow-[#25D366]/20"
+                                >
+                                  <Send size={16} className="mr-2" /> Send via WhatsApp
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <form onSubmit={handleQuoteSubmit} className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+                      <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white">Build Quotation</h3>
+                        <button 
+                          type="button" 
+                          onClick={() => { setIsQuoting(false); setQuoteItems([{ description: '', amount: '' }]); }}
+                          className="text-sm font-medium text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+
+                      <div className="bg-gray-50 dark:bg-zinc-900/50 rounded-xl p-5 border border-gray-200 dark:border-zinc-800 mb-6">
+                        <div className="flex justify-between items-end mb-4 border-b border-gray-200 dark:border-zinc-800 pb-4">
+                          <h4 className="font-bold text-gray-800 dark:text-gray-200 text-sm uppercase tracking-wider">Line Items</h4>
+                          
+                          <label className="flex items-center cursor-pointer">
+                            <div className="relative">
+                              <input type="checkbox" className="sr-only" checked={gstEnabled} onChange={() => setGstEnabled(!gstEnabled)} />
+                              <div className={`block w-10 h-6 rounded-full transition-colors ${gstEnabled ? 'bg-amber-500' : 'bg-gray-300 dark:bg-zinc-700'}`}></div>
+                              <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${gstEnabled ? 'transform translate-x-4' : ''}`}></div>
+                            </div>
+                            <span className="ml-3 text-sm font-medium text-gray-700 dark:text-gray-300">Apply GST (18%)</span>
+                          </label>
+                        </div>
+
+                        <div className="space-y-3">
+                          {quoteItems.map((item, index) => (
+                            <div key={index} className="flex gap-3 items-start group">
+                              <div className="flex-1">
+                                <input 
+                                  type="text" 
+                                  placeholder="Description (e.g. Pre-wedding Shoot, Album)" 
+                                  value={item.description}
+                                  onChange={(e) => updateQuoteItem(index, 'description', e.target.value)}
+                                  className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-gray-900 dark:text-white text-sm"
+                                  required
+                                />
+                              </div>
+                              <div className="w-32">
+                                <input 
+                                  type="number" 
+                                  placeholder="Amount" 
+                                  value={item.amount}
+                                  onChange={(e) => updateQuoteItem(index, 'amount', e.target.value)}
+                                  className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-gray-900 dark:text-white text-sm"
+                                  required
+                                />
+                              </div>
+                              {quoteItems.length > 1 && (
+                                <button 
+                                  type="button" 
+                                  onClick={() => removeQuoteItem(index)}
+                                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors mt-0.5"
+                                >
+                                  <Trash2 size={18} />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+
+                        <button 
+                          type="button" 
+                          onClick={addQuoteItem}
+                          className="mt-4 flex items-center text-sm font-bold text-amber-600 dark:text-amber-500 hover:text-amber-700 transition-colors"
+                        >
+                          <Plus size={16} className="mr-1" /> Add Row
+                        </button>
+                      </div>
+
+                      <div className="bg-gray-100 dark:bg-zinc-900 p-5 rounded-xl space-y-3 mb-8">
+                        <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
+                          <span>Subtotal</span>
+                          <span className="font-medium text-gray-900 dark:text-white">₹{subTotal.toLocaleString('en-IN')}</span>
+                        </div>
+                        {gstEnabled && (
+                          <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
+                            <span>GST (18%)</span>
+                            <span className="font-medium text-gray-900 dark:text-white">₹{gstAmount.toLocaleString('en-IN')}</span>
+                          </div>
+                        )}
+                        <div className="pt-3 border-t border-gray-200 dark:border-zinc-800 flex justify-between items-center">
+                          <span className="font-bold text-gray-900 dark:text-white">Grand Total</span>
+                          <span className="text-xl font-bold text-amber-600 dark:text-amber-500">₹{grandTotal.toLocaleString('en-IN')}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end gap-3 sticky bottom-0 bg-white dark:bg-zinc-950 pt-4 pb-2 border-t border-gray-100 dark:border-zinc-800">
+                        <button 
+                          type="submit"
+                          disabled={createQuotationMutation.isPending}
+                          className="px-6 py-2.5 bg-amber-600 text-white font-bold rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50 shadow-sm flex items-center"
+                        >
+                          {createQuotationMutation.isPending ? 'Generating PDF...' : 'Generate & Save Quotation'}
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ADD LEAD MODAL */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-gray-100 dark:border-zinc-800 flex justify-between items-center">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Add New Lead</h3>
+              <button 
+                onClick={() => setIsAddModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl leading-none"
+              >
+                &times;
+              </button>
+            </div>
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                createLeadMutation.mutate(newLeadData);
+              }}
+              className="p-6 space-y-4"
+            >
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name *</label>
+                <input 
+                  type="text" 
+                  required
+                  value={newLeadData.name}
+                  onChange={e => setNewLeadData({...newLeadData, name: e.target.value})}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-gray-900 dark:text-white"
+                  placeholder="John Doe"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone Number *</label>
+                <input 
+                  type="tel" 
+                  required
+                  value={newLeadData.phone}
+                  onChange={e => setNewLeadData({...newLeadData, phone: e.target.value})}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-gray-900 dark:text-white"
+                  placeholder="+91 9876543210"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Address</label>
+                <input 
+                  type="email" 
+                  value={newLeadData.email}
+                  onChange={e => setNewLeadData({...newLeadData, email: e.target.value})}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-gray-900 dark:text-white"
+                  placeholder="john@example.com"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Initial Message / Notes</label>
+                <textarea 
+                  value={newLeadData.message}
+                  onChange={e => setNewLeadData({...newLeadData, message: e.target.value})}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-gray-900 dark:text-white resize-none h-24"
+                  placeholder="Interested in wedding photography..."
+                ></textarea>
+              </div>
+              <div className="pt-4 flex justify-end gap-3">
+                <button 
+                  type="button"
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="px-4 py-2 text-gray-600 dark:text-gray-400 font-medium hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  disabled={createLeadMutation.isPending}
+                  className="px-4 py-2 bg-amber-600 text-white font-medium rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50"
+                >
+                  {createLeadMutation.isPending ? 'Saving...' : 'Save Lead'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* QUOTATION INTERCEPT MODAL */}
+      {quoteInterceptState?.isOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200 p-6">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Create Quotation?</h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">
+              You are moving this lead to the "Quote Sent" stage. Would you like to build a formal quotation now, or continue without one?
+            </p>
+            <div className="flex flex-col gap-3">
+              <button 
+                onClick={() => {
+                  // 1. Mutate lead stage
+                  updateLeadStageMutation.mutate({ id: quoteInterceptState.leadId, stage: 'Quote Sent' });
+                  // 2. Open Lead Modal on Quotations tab
+                  const lead = leads?.find(l => l._id === quoteInterceptState.leadId);
+                  if (lead) {
+                    setSelectedLead(lead);
+                    setActiveTab('quotations');
+                    setIsQuoting(true);
+                  }
+                  // 3. Close intercept modal
+                  setQuoteInterceptState(null);
+                }}
+                className="w-full px-4 py-3 bg-amber-600 text-white font-bold rounded-lg hover:bg-amber-700 transition-colors shadow-sm flex items-center justify-center"
+              >
+                <Calculator size={18} className="mr-2" /> Create Quotation Now
+              </button>
+              <button 
+                onClick={() => {
+                  // Mutate lead stage and set skipped flag
+                  updateLeadStageMutation.mutate({ id: quoteInterceptState.leadId, stage: 'Quote Sent', quotationSkipped: true });
+                  setQuoteInterceptState(null);
+                }}
+                className="w-full px-4 py-3 bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors"
+              >
+                Continue Without Quotation
+              </button>
+              <button 
+                onClick={() => setQuoteInterceptState(null)}
+                className="w-full px-4 py-2 mt-2 text-gray-500 dark:text-gray-400 font-medium hover:text-gray-800 dark:hover:text-white transition-colors"
+              >
+                Cancel Movement
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ADVANCE PAYMENT MODAL */}
+      {advanceModalState?.isOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-gray-100 dark:border-zinc-800 flex justify-between items-center bg-emerald-50 dark:bg-emerald-900/20">
+              <h3 className="text-lg font-bold text-emerald-900 dark:text-emerald-400">Confirm Booking (Advance Payment)</h3>
+              <button 
+                onClick={() => setAdvanceModalState(null)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl leading-none"
+              >
+                &times;
+              </button>
+            </div>
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                createBookingMutation.mutate({
+                  leadId: advanceModalState.leadId,
+                  quotationId: advanceModalState.quotationId,
+                  totalAmount: Number(advanceModalState.totalAmount),
+                  payment: {
+                    amount: Number(advancePaymentData.amount),
+                    date: advancePaymentData.date,
+                    method: advancePaymentData.method,
+                    reference: advancePaymentData.reference,
+                    notes: advancePaymentData.notes
+                  },
+                  proofs: paymentProofs
+                });
+              }}
+              className="p-6 space-y-4"
+            >
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Total Project Amount (Rs) *</label>
+                <input 
+                  type="number" 
+                  required
+                  value={advanceModalState.totalAmount}
+                  onChange={e => setAdvanceModalState({...advanceModalState, totalAmount: e.target.value})}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-gray-900 dark:text-white"
+                />
+              </div>
+              <div className="pt-2 border-t border-gray-100 dark:border-zinc-800">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Advance Amount Received (Rs) *</label>
+                <input 
+                  type="number" 
+                  required
+                  value={advancePaymentData.amount}
+                  onChange={e => setAdvancePaymentData({...advancePaymentData, amount: e.target.value})}
+                  className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-emerald-300 dark:border-emerald-700/50 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-gray-900 dark:text-white font-bold"
+                  placeholder="e.g. 5000"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Payment Date *</label>
+                  <input 
+                    type="date" 
+                    required
+                    value={advancePaymentData.date}
+                    onChange={e => setAdvancePaymentData({...advancePaymentData, date: e.target.value})}
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-gray-900 dark:text-white text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Method *</label>
+                  <select 
+                    value={advancePaymentData.method}
+                    onChange={e => setAdvancePaymentData({...advancePaymentData, method: e.target.value})}
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-gray-900 dark:text-white text-sm"
+                  >
+                    <option>Cash</option>
+                    <option>UPI</option>
+                    <option>Bank Transfer</option>
+                    <option>Credit Card</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Transaction Reference (Optional)</label>
+                <input 
+                  type="text" 
+                  value={advancePaymentData.reference}
+                  onChange={e => setAdvancePaymentData({...advancePaymentData, reference: e.target.value})}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-gray-900 dark:text-white text-sm"
+                  placeholder="Txn ID or Cheque No."
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
+                <input 
+                  type="text" 
+                  value={advancePaymentData.notes}
+                  onChange={e => setAdvancePaymentData({...advancePaymentData, notes: e.target.value})}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-gray-900 dark:text-white text-sm"
+                  placeholder="Any additional notes..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Payment Proof (Optional)</label>
+                <div className="flex items-center justify-center w-full">
+                  <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:hover:bg-bray-800 dark:bg-zinc-950 hover:bg-gray-100 dark:border-zinc-700 dark:hover:border-zinc-600 dark:hover:bg-zinc-900 transition-colors">
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <p className="mb-1 text-xs text-gray-500 dark:text-gray-400"><span className="font-semibold">Click to upload</span> or drag and drop</p>
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400">PNG, JPG or WEBP (Max 5MB)</p>
+                    </div>
+                    <input 
+                      type="file" 
+                      className="hidden" 
+                      multiple
+                      accept="image/*"
+                      onChange={(e) => {
+                        if (e.target.files) {
+                          setPaymentProofs([...paymentProofs, ...Array.from(e.target.files)]);
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                {paymentProofs.length > 0 && (
+                  <div className="mt-3 flex gap-2 flex-wrap">
+                    {paymentProofs.map((file, idx) => (
+                      <div key={idx} className="relative w-16 h-16 rounded-md overflow-hidden border border-gray-200 dark:border-zinc-700 group">
+                        <img src={URL.createObjectURL(file)} alt="proof" className="w-full h-full object-cover" />
+                        <button 
+                          type="button"
+                          onClick={() => setPaymentProofs(paymentProofs.filter((_, i) => i !== idx))}
+                          className="absolute top-0 right-0 bg-red-500 text-white rounded-bl-md p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-4 flex justify-end gap-3 border-t border-gray-100 dark:border-zinc-800">
+                <button 
+                  type="button"
+                  onClick={() => setAdvanceModalState(null)}
+                  className="px-4 py-2 text-gray-600 dark:text-gray-400 font-medium hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  disabled={createBookingMutation.isPending}
+                  className="px-4 py-2 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                >
+                  {createBookingMutation.isPending ? 'Confirming...' : 'Confirm Booking'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE CONFIRM MODAL */}
+      <ConfirmModal
+        isOpen={!!deleteConfirmState}
+        onClose={() => setDeleteConfirmState(null)}
+        onConfirm={() => {
+          if (deleteConfirmState) {
+            deleteLeadMutation.mutate(deleteConfirmState);
+          }
+        }}
+        title="Delete Lead?"
+        message={
+          <>
+            Are you sure you want to delete this lead? <br />
+            <strong>This action cannot be undone.</strong>
+          </>
+        }
+        confirmText="Delete"
+        type="danger"
+        isLoading={deleteLeadMutation.isPending}
+      />
     </div>
   );
 };

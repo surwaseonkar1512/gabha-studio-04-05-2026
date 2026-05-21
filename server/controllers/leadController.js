@@ -1,4 +1,5 @@
 const Lead = require('../models/Lead');
+const { createNotification } = require('./notificationController');
 
 // @desc    Get all leads
 // @route   GET /api/leads
@@ -46,6 +47,13 @@ const createLead = async (req, res) => {
 
     const createdLead = await lead.save();
 
+    // Save notification to database
+    await createNotification({
+      title: 'New Lead Received!',
+      message: `${createdLead.name} just sent an inquiry.`,
+      type: 'lead',
+    });
+
     // Emit socket event to connected admins
     const io = req.app.get('io');
     if (io) {
@@ -63,17 +71,30 @@ const createLead = async (req, res) => {
 // @access  Private
 const updateLead = async (req, res) => {
   try {
-    const { name, phone, email, message, stage, source } = req.body;
+    const { name, phone, email, message, stage, source, quotationSkipped } = req.body;
 
     const lead = await Lead.findById(req.params.id);
 
     if (lead) {
+      if (stage && stage !== lead.stage) {
+        const STAGES = ['New Lead', 'Contacted', 'Quote Sent', 'Booking', 'Completed'];
+        const currentIndex = STAGES.indexOf(lead.stage);
+        const newIndex = STAGES.indexOf(stage);
+
+        if (newIndex !== currentIndex + 1 && newIndex !== currentIndex) {
+          return res.status(400).json({ message: `Invalid stage transition. You can only move forward one step at a time. Cannot move from ${lead.stage} to ${stage}` });
+        }
+        lead.stage = stage;
+      }
+
       lead.name = name || lead.name;
       lead.phone = phone || lead.phone;
       lead.email = email || lead.email;
       lead.message = message || lead.message;
-      lead.stage = stage || lead.stage;
       lead.source = source || lead.source;
+      if (quotationSkipped !== undefined) {
+        lead.quotationSkipped = quotationSkipped;
+      }
 
       const updatedLead = await lead.save();
       res.json(updatedLead);
@@ -93,6 +114,10 @@ const deleteLead = async (req, res) => {
     const lead = await Lead.findById(req.params.id);
 
     if (lead) {
+      if (lead.stage !== 'New Lead' && lead.stage !== 'Contacted') {
+        return res.status(403).json({ message: `Deletion not allowed for leads in the "${lead.stage}" stage.` });
+      }
+      
       await lead.deleteOne();
       res.json({ message: 'Lead removed' });
     } else {

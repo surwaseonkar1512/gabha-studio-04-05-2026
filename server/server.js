@@ -47,6 +47,11 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/leads', require('./routes/leadRoutes'));
+app.use('/api/notifications', require('./routes/notificationRoutes'));
+app.use('/api/quotations', require('./routes/quotationRoutes'));
+app.use('/api/bookings', require('./routes/bookingRoutes'));
+app.use('/api/expenses', require('./routes/expenseRoutes'));
+app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {

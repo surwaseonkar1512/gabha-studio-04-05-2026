@@ -42,6 +42,14 @@ const leadSchema = new mongoose.Schema(
     productReference: {
       type: String, // Or ObjectId if referencing Product model later
     },
+    hasQuotation: {
+      type: Boolean,
+      default: false
+    },
+    quotationSkipped: {
+      type: Boolean,
+      default: false
+    }
   },
   {
     timestamps: true,

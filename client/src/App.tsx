@@ -5,6 +5,8 @@ import Login from './pages/auth/Login';
 import DashboardLayout from './layouts/DashboardLayout';
 import Dashboard from './pages/dashboard/Dashboard';
 import LeadsList from './pages/crm/LeadsList';
+import BookingsList from './pages/bookings/BookingsList';
+import ExpensesList from './pages/finance/ExpensesList';
 import PublicLayout from './layouts/PublicLayout';
 import Home from './pages/public/Home';
 import About from './pages/public/About';
@@ -30,6 +32,8 @@ function App() {
         <Route path="/admin" element={isAuthenticated ? <DashboardLayout /> : <Navigate to="/login" />}>
           <Route index element={<Dashboard />} />
           <Route path="crm" element={<LeadsList />} />
+          <Route path="bookings" element={<BookingsList />} />
+          <Route path="expenses" element={<ExpensesList />} />
         </Route>
       </Routes>
     </Router>

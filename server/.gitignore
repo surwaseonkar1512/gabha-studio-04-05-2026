@@ -23,10 +23,10 @@ node_modules/
 .npm
 
 # dotenv environment variable files
-.env
-.env.test
-.env.production
-.env.local
+# .env
+# .env.test
+# .env.production
+# .env.local
 
 # Editor directories and files
 .vscode/*
