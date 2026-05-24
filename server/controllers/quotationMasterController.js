@@ -17,7 +17,7 @@ const getMasters = async (req, res) => {
 // @access  Private
 const createMaster = async (req, res) => {
   try {
-    const { name, items } = req.body;
+    const { name, items, gstPercentage } = req.body;
     if (!name || !items || !Array.isArray(items)) {
       return res.status(400).json({ message: 'Template name and items are required' });
     }
@@ -27,7 +27,7 @@ const createMaster = async (req, res) => {
       return res.status(400).json({ message: 'A template with this name already exists' });
     }
 
-    const master = await QuotationMaster.create({ name, items });
+    const master = await QuotationMaster.create({ name, items, gstPercentage: gstPercentage !== undefined ? gstPercentage : 18 });
     res.status(201).json(master);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -39,7 +39,7 @@ const createMaster = async (req, res) => {
 // @access  Private
 const updateMaster = async (req, res) => {
   try {
-    const { name, items } = req.body;
+    const { name, items, gstPercentage } = req.body;
     const master = await QuotationMaster.findById(req.params.id);
     if (!master) {
       return res.status(404).json({ message: 'Template not found' });
@@ -55,6 +55,10 @@ const updateMaster = async (req, res) => {
 
     if (items && Array.isArray(items)) {
       master.items = items;
+    }
+    
+    if (gstPercentage !== undefined) {
+      master.gstPercentage = gstPercentage;
     }
 
     await master.save();

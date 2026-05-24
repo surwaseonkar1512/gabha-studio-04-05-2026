@@ -13,6 +13,7 @@ interface QuotationMaster {
   _id: string;
   name: string;
   items: MasterItem[];
+  gstPercentage?: number;
   createdAt: string;
 }
 
@@ -22,6 +23,7 @@ const QuotationMasterModule: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [items, setItems] = useState<MasterItem[]>([{ description: '', amount: 0 }]);
+  const [gstPercentage, setGstPercentage] = useState(18);
 
   // Fetch all quotation templates
   const { data: masters, isLoading } = useQuery<QuotationMaster[]>({
@@ -33,7 +35,7 @@ const QuotationMasterModule: React.FC = () => {
   });
 
   const createMutation = useMutation({
-    mutationFn: async (newMaster: { name: string; items: MasterItem[] }) => {
+    mutationFn: async (newMaster: { name: string; items: MasterItem[], gstPercentage: number }) => {
       return api.post('/quotation-masters', newMaster);
     },
     onSuccess: () => {
@@ -47,7 +49,7 @@ const QuotationMasterModule: React.FC = () => {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: { name: string; items: MasterItem[] } }) => {
+    mutationFn: async ({ id, data }: { id: string; data: { name: string; items: MasterItem[], gstPercentage: number } }) => {
       return api.put(`/quotation-masters/${id}`, data);
     },
     onSuccess: () => {
@@ -76,6 +78,7 @@ const QuotationMasterModule: React.FC = () => {
   const resetForm = () => {
     setName('');
     setItems([{ description: '', amount: 0 }]);
+    setGstPercentage(18);
     setEditingId(null);
     setIsOpen(false);
   };
@@ -84,6 +87,7 @@ const QuotationMasterModule: React.FC = () => {
     setEditingId(master._id);
     setName(master.name);
     setItems(master.items.length > 0 ? master.items : [{ description: '', amount: 0 }]);
+    setGstPercentage(master.gstPercentage !== undefined ? master.gstPercentage : 18);
     setIsOpen(true);
   };
 
@@ -125,9 +129,9 @@ const QuotationMasterModule: React.FC = () => {
     }
 
     if (editingId) {
-      updateMutation.mutate({ id: editingId, data: { name, items: filteredItems } });
+      updateMutation.mutate({ id: editingId, data: { name, items: filteredItems, gstPercentage } });
     } else {
-      createMutation.mutate({ name, items: filteredItems });
+      createMutation.mutate({ name, items: filteredItems, gstPercentage });
     }
   };
 
@@ -194,9 +198,15 @@ const QuotationMasterModule: React.FC = () => {
                 </div>
               </div>
 
-              <div className="mt-5 pt-3 border-t border-gray-100 dark:border-zinc-800 flex justify-between items-center">
-                <span className="text-xs text-gray-400">Total Pre-tax</span>
-                <span className="font-bold text-emerald-600 dark:text-emerald-400">₹{calculateTotal(master.items).toLocaleString('en-IN')}</span>
+              <div className="mt-5 pt-3 border-t border-gray-100 dark:border-zinc-800 flex flex-col gap-1">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-400">Total Pre-tax</span>
+                  <span className="font-medium text-emerald-600 dark:text-emerald-400">₹{calculateTotal(master.items).toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-500 dark:text-gray-300 font-bold">Total with GST ({master.gstPercentage !== undefined ? master.gstPercentage : 18}%)</span>
+                  <span className="font-bold text-emerald-700 dark:text-emerald-300">₹{(calculateTotal(master.items) * (1 + (master.gstPercentage !== undefined ? master.gstPercentage : 18) / 100)).toLocaleString('en-IN')}</span>
+                </div>
               </div>
             </div>
           ))}
@@ -286,9 +296,33 @@ const QuotationMasterModule: React.FC = () => {
                 </div>
               </div>
 
-              <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 rounded-lg p-4 flex justify-between items-center">
-                <span className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">Pre-tax Template Total</span>
-                <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">₹{calculateTotal(items).toLocaleString('en-IN')}</span>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2">Default GST Percentage</label>
+                <div className="flex items-center">
+                  <input
+                    type="number"
+                    min="0"
+                    max="99"
+                    value={gstPercentage}
+                    onChange={e => {
+                      const val = Number(e.target.value);
+                      setGstPercentage(val > 99 ? 99 : val < 0 ? 0 : val);
+                    }}
+                    className="w-20 px-3 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-800 text-gray-900 dark:text-white rounded-lg text-sm outline-none focus:ring-1 focus:ring-emerald-500"
+                    required
+                  />
+                  <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">%</span>
+                </div>
+              </div>
+              <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 rounded-lg p-4 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-emerald-800 dark:text-emerald-300">Pre-tax Template Total</span>
+                  <span className="font-medium text-emerald-600 dark:text-emerald-400">₹{calculateTotal(items).toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex justify-between items-center pt-2 border-t border-emerald-200/50 dark:border-emerald-800/50">
+                  <span className="text-sm font-bold text-emerald-900 dark:text-emerald-200">Total with GST ({gstPercentage}%)</span>
+                  <span className="text-lg font-bold text-emerald-700 dark:text-emerald-400">₹{(calculateTotal(items) * (1 + gstPercentage / 100)).toLocaleString('en-IN')}</span>
+                </div>
               </div>
             </form>
 

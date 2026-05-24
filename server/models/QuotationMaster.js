@@ -11,7 +11,13 @@ const quotationMasterSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
-  items: [quotationMasterItemSchema]
+  items: [quotationMasterItemSchema],
+  gstPercentage: {
+    type: Number,
+    default: 18,
+    min: 0,
+    max: 99
+  }
 }, { timestamps: true });
 
 const QuotationMaster = mongoose.model('QuotationMaster', quotationMasterSchema);

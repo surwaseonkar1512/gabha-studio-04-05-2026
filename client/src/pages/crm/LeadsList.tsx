@@ -130,6 +130,7 @@ const LeadsList = () => {
   const [isQuoting, setIsQuoting] = useState(false);
   const [quoteItems, setQuoteItems] = useState<QuotationItem[]>([{ description: '', amount: '' }]);
   const [gstEnabled, setGstEnabled] = useState(false);
+  const [gstPercentage, setGstPercentage] = useState(18);
 
   // Advance Payment Modal State
   const [advanceModalState, setAdvanceModalState] = useState<{ isOpen: boolean; leadId: string; quotationId?: string; totalAmount: number | string } | null>(null);
@@ -405,7 +406,8 @@ const LeadsList = () => {
     createQuotationMutation.mutate({
       leadId: selectedLead._id,
       items: validItems.map(item => ({ ...item, amount: Number(item.amount) })),
-      gstEnabled
+      gstEnabled,
+      gstPercentage
     });
   };
 
@@ -418,7 +420,7 @@ const LeadsList = () => {
   };
 
   const subTotal = quoteItems.reduce((acc, item) => acc + (Number(item.amount) || 0), 0);
-  const gstAmount = gstEnabled ? subTotal * 0.18 : 0;
+  const gstAmount = gstEnabled ? subTotal * (gstPercentage / 100) : 0;
   const grandTotal = subTotal + gstAmount;
 
   if (isLoading) return <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>;
@@ -1047,6 +1049,7 @@ const LeadsList = () => {
                               const master = masters?.find(m => m._id === selectedId);
                               if (master) {
                                 setQuoteItems(master.items.map((item: any) => ({ description: item.description, amount: String(item.amount) })));
+                                setGstPercentage(master.gstPercentage !== undefined ? master.gstPercentage : 18);
                                 toast.success(`Loaded "${master.name}" template rows!`);
                               }
                             }
@@ -1066,14 +1069,31 @@ const LeadsList = () => {
                         <div className="flex justify-between items-end mb-4 border-b border-gray-200 dark:border-zinc-800 pb-4">
                           <h4 className="font-bold text-gray-800 dark:text-gray-200 text-sm uppercase tracking-wider">Line Items</h4>
 
-                          <label className="flex items-center cursor-pointer">
-                            <div className="relative">
-                              <input type="checkbox" className="sr-only" checked={gstEnabled} onChange={() => setGstEnabled(!gstEnabled)} />
-                              <div className={`block w-10 h-6 rounded-full transition-colors ${gstEnabled ? 'bg-amber-500' : 'bg-gray-300 dark:bg-zinc-700'}`}></div>
-                              <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${gstEnabled ? 'transform translate-x-4' : ''}`}></div>
-                            </div>
-                            <span className="ml-3 text-sm font-medium text-gray-700 dark:text-gray-300">Apply GST (18%)</span>
-                          </label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={gstEnabled}
+                              onChange={e => setGstEnabled(e.target.checked)}
+                              className="rounded text-amber-500 focus:ring-amber-500"
+                            />
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer" onClick={() => setGstEnabled(!gstEnabled)}>Apply GST</span>
+                            {gstEnabled && (
+                              <div className="flex items-center ml-2">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="99"
+                                  value={gstPercentage}
+                                  onChange={e => {
+                                    const val = Number(e.target.value);
+                                    setGstPercentage(val > 99 ? 99 : val < 0 ? 0 : val);
+                                  }}
+                                  className="w-14 px-2 py-1 text-sm border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 rounded focus:ring-1 focus:ring-amber-500 text-center text-gray-900 dark:text-white"
+                                />
+                                <span className="ml-1 text-sm text-gray-500">%</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
 
                         <div className="space-y-3">
@@ -1128,7 +1148,7 @@ const LeadsList = () => {
                         </div>
                         {gstEnabled && (
                           <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
-                            <span>GST (18%)</span>
+                            <span>GST ({gstPercentage}%)</span>
                             <span className="font-medium text-gray-900 dark:text-white">₹{gstAmount.toLocaleString('en-IN')}</span>
                           </div>
                         )}
