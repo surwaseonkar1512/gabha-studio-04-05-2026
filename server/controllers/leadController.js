@@ -34,7 +34,21 @@ const getLeadById = async (req, res) => {
 // @access  Private (or Public for Website Form if configured)
 const createLead = async (req, res) => {
   try {
-    const { name, phone, email, message, source, productReference } = req.body;
+    const { 
+      name, 
+      phone, 
+      email, 
+      message, 
+      source, 
+      productReference,
+      productName,
+      location,
+      fullAddress,
+      latitude,
+      longitude,
+      locationType,
+      notesRequirements
+    } = req.body;
 
     const lead = new Lead({
       name,
@@ -43,6 +57,13 @@ const createLead = async (req, res) => {
       message,
       source: source || 'Manual Entry',
       productReference,
+      productName: productName || productReference || 'General Service',
+      location,
+      fullAddress,
+      latitude: latitude ? Number(latitude) : undefined,
+      longitude: longitude ? Number(longitude) : undefined,
+      locationType: locationType || 'Manual',
+      notesRequirements: notesRequirements || message
     });
 
     const createdLead = await lead.save();
@@ -71,7 +92,22 @@ const createLead = async (req, res) => {
 // @access  Private
 const updateLead = async (req, res) => {
   try {
-    const { name, phone, email, message, stage, source, quotationSkipped } = req.body;
+    const { 
+      name, 
+      phone, 
+      email, 
+      message, 
+      stage, 
+      source, 
+      quotationSkipped,
+      productName,
+      location,
+      fullAddress,
+      latitude,
+      longitude,
+      locationType,
+      notesRequirements
+    } = req.body;
 
     const lead = await Lead.findById(req.params.id);
 
@@ -95,6 +131,14 @@ const updateLead = async (req, res) => {
       if (quotationSkipped !== undefined) {
         lead.quotationSkipped = quotationSkipped;
       }
+
+      if (productName) lead.productName = productName;
+      if (location !== undefined) lead.location = location;
+      if (fullAddress !== undefined) lead.fullAddress = fullAddress;
+      if (latitude !== undefined) lead.latitude = latitude ? Number(latitude) : undefined;
+      if (longitude !== undefined) lead.longitude = longitude ? Number(longitude) : undefined;
+      if (locationType !== undefined) lead.locationType = locationType;
+      if (notesRequirements !== undefined) lead.notesRequirements = notesRequirements;
 
       const updatedLead = await lead.save();
       res.json(updatedLead);

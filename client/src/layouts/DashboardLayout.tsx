@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, CreditCard, Layers, User, LogOut, Sun, Moon, Bell, Check, CheckCheck, UserPlus, Info, AlertCircle, Calendar } from 'lucide-react';
+import { LayoutDashboard, Users, CreditCard, Layers, User, LogOut, Sun, Moon, Bell, Check, CheckCheck, UserPlus, Info, AlertCircle, Calendar, FileText, Copy } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../store/authSlice';
 import { useTheme } from '../context/ThemeContext';
@@ -45,7 +45,7 @@ const DashboardLayout = () => {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  
+
   // Logout Confirm Modal State
   const [logoutConfirmState, setLogoutConfirmState] = useState(false);
 
@@ -141,6 +141,8 @@ const DashboardLayout = () => {
   const navItems = [
     { name: 'Dashboard', path: '/admin', icon: <LayoutDashboard size={20} /> },
     { name: 'CRM', path: '/admin/crm', icon: <Users size={20} /> },
+    // { name: 'Create Quotation', path: '/admin/quotations', icon: <FileText size={20} /> },
+    { name: 'Quotation Masters', path: '/admin/quotation-masters', icon: <Copy size={20} /> },
     { name: 'Bookings', path: '/admin/bookings', icon: <Calendar size={20} /> },
     { name: 'Expenses', path: '/admin/expenses', icon: <CreditCard size={20} /> },
     { name: 'CMS', path: '/admin/cms', icon: <Layers size={20} /> },

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Search, Filter, CreditCard, FileText, Download, CheckCircle, Clock, CalendarDays, X, Plus, Receipt, ChevronRight, Send } from 'lucide-react';
+import { Search, Filter, CreditCard, FileText, Download, CheckCircle, Clock, CalendarDays, X, Plus, Receipt, ChevronRight, Send, Navigation } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../api/axiosInstance';
 import ConfirmModal from '../../components/ui/ConfirmModal';
@@ -27,6 +27,13 @@ interface Booking {
     phone: string;
     email: string;
     stage: string;
+    productName: string;
+    location?: string;
+    fullAddress?: string;
+    latitude?: number;
+    longitude?: number;
+    locationType?: string;
+    notesRequirements?: string;
     createdAt: string;
   };
   quotation?: {
@@ -38,13 +45,23 @@ interface Booking {
   paidAmount: number;
   payments: Payment[];
   status: string;
+  deliveryDate?: string;
+  notes?: string;
   createdAt: string;
 }
 
 const BookingsList = () => {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchName, setSearchName] = useState('');
+  const [searchProduct, setSearchProduct] = useState('');
+  const [searchLocation, setSearchLocation] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [isFilterPopupOpen, setIsFilterPopupOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('All'); // All, Active, Completed, Cancelled
+  const [paymentFilter, setPaymentFilter] = useState('All'); // All, Fully Paid, Partially Paid, High Pending
+  const [deliveryFilter, setDeliveryFilter] = useState('All'); // All, Upcoming, Overdue
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'timeline'>('overview');
+  const [activeTab, setActiveTab] = useState<'details' | 'overview' | 'timeline'>('details');
   const [isAddingPayment, setIsAddingPayment] = useState(false);
   const [paymentData, setPaymentData] = useState({ amount: '', date: new Date().toISOString().split('T')[0], method: 'UPI', reference: '', notes: '', isFinal: false });
 
@@ -103,10 +120,64 @@ const BookingsList = () => {
     onError: () => toast.error('Failed to add payment')
   });
 
-  const filteredBookings = bookings?.filter(b => 
-    (b.bookingId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (b.lead?.name || '').toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
+  const filteredBookings = bookings?.filter(b => {
+    if (searchName) {
+      const matchName = (b.lead?.name || '').toLowerCase().includes(searchName.toLowerCase());
+      const matchPhone = (b.lead?.phone || '').includes(searchName);
+      const matchId = (b.bookingId || '').toLowerCase().includes(searchName.toLowerCase());
+      if (!matchName && !matchPhone && !matchId) return false;
+    }
+    if (searchProduct) {
+      if (!(b.lead?.productName || '').toLowerCase().includes(searchProduct.toLowerCase())) return false;
+    }
+    if (searchLocation) {
+      if (!(b.lead?.location || '').toLowerCase().includes(searchLocation.toLowerCase())) return false;
+    }
+    if (startDate) {
+      if (!b.deliveryDate) return false;
+      const deliveryTime = new Date(b.deliveryDate).getTime();
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      if (deliveryTime < start.getTime()) return false;
+    }
+    if (endDate) {
+      if (!b.deliveryDate) return false;
+      const deliveryTime = new Date(b.deliveryDate).getTime();
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      if (deliveryTime > end.getTime()) return false;
+    }
+
+    // Status Filter
+    if (statusFilter !== 'All' && b.status !== statusFilter) return false;
+
+    // Payment Filter
+    const balance = b.totalAmount - b.paidAmount;
+    if (paymentFilter === 'Fully Paid' && balance > 0) return false;
+    if (paymentFilter === 'Partially Paid' && (balance === 0 || b.paidAmount === 0)) return false;
+    if (paymentFilter === 'High Pending' && balance <= 20000) return false;
+
+    // Quick Delivery Filter Shortcuts (Upcoming / Overdue)
+    if (deliveryFilter !== 'All') {
+      if (!b.deliveryDate) return false;
+      const deliveryTime = new Date(b.deliveryDate).getTime();
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayTime = today.getTime();
+      const threeDaysLater = new Date(todayTime + 3 * 24 * 60 * 60 * 1000).getTime();
+
+      if (deliveryFilter === 'Upcoming') {
+        const isUpcoming = deliveryTime >= todayTime && deliveryTime <= threeDaysLater;
+        if (!isUpcoming) return false;
+      }
+      if (deliveryFilter === 'Overdue') {
+        const isOverdue = deliveryTime < todayTime && b.status === 'Active';
+        if (!isOverdue) return false;
+      }
+    }
+
+    return true;
+  }) || [];
 
   const handlePaymentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,23 +206,271 @@ const BookingsList = () => {
         </div>
       </div>
 
+      {/* FILTER CONTROL PANEL */}
       <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-gray-200 dark:border-zinc-800 overflow-hidden flex-shrink-0">
-        <div className="p-4 flex flex-col sm:flex-row gap-4 justify-between">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
+        {/* Desktop Layout - Hidden on mobile */}
+        <div className="hidden lg:grid lg:grid-cols-4 xl:grid-cols-8 gap-4 p-4">
+          <div className="relative col-span-2">
+            <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1">Customer / Booking ID</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={14} />
+              <input
+                type="text"
+                placeholder="Search name, phone, ID..."
+                value={searchName}
+                onChange={(e) => setSearchName(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 text-gray-900 dark:text-white rounded-lg text-xs outline-none focus:ring-1 focus:ring-emerald-500 transition-all"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1">Product</label>
             <input
               type="text"
-              placeholder="Search by ID or customer name..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm transition-all"
+              placeholder="Search product..."
+              value={searchProduct}
+              onChange={(e) => setSearchProduct(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 text-gray-900 dark:text-white rounded-lg text-xs outline-none focus:ring-1 focus:ring-emerald-500 transition-all"
             />
           </div>
-          <button className="flex items-center px-3 py-2 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors text-sm font-medium">
-            <Filter size={16} className="mr-2" /> Filter
+          <div>
+            <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1">Location</label>
+            <input
+              type="text"
+              placeholder="Search city/area..."
+              value={searchLocation}
+              onChange={(e) => setSearchLocation(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 text-gray-900 dark:text-white rounded-lg text-xs outline-none focus:ring-1 focus:ring-emerald-500 transition-all"
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1">Delivery From</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 text-gray-900 dark:text-white rounded-lg text-xs outline-none focus:ring-1 focus:ring-emerald-500 transition-all"
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1">Delivery To</label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 text-gray-900 dark:text-white rounded-lg text-xs outline-none focus:ring-1 focus:ring-emerald-500 transition-all"
+            />
+          </div>
+          <div className="col-span-2 flex items-end gap-3">
+            <div className="flex-1">
+              <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1">Status / Pay</label>
+              <div className="flex gap-2">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full px-2 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 text-gray-900 dark:text-white rounded-lg text-xs outline-none focus:ring-1 focus:ring-emerald-500"
+                >
+                  <option value="All">All Statuses</option>
+                  <option value="Active">Active</option>
+                  <option value="Completed">Completed</option>
+                  <option value="Cancelled">Cancelled</option>
+                </select>
+                <select
+                  value={paymentFilter}
+                  onChange={(e) => setPaymentFilter(e.target.value)}
+                  className="w-full px-2 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 text-gray-900 dark:text-white rounded-lg text-xs outline-none focus:ring-1 focus:ring-emerald-500"
+                >
+                  <option value="All">All Payments</option>
+                  <option value="Fully Paid">Fully Paid</option>
+                  <option value="Partially Paid">Partially Paid</option>
+                  <option value="High Pending">High Pending (&gt;20k)</option>
+                </select>
+              </div>
+            </div>
+            {(searchName || searchProduct || searchLocation || startDate || endDate || statusFilter !== 'All' || paymentFilter !== 'All' || deliveryFilter !== 'All') && (
+              <button
+                onClick={() => {
+                  setSearchName('');
+                  setSearchProduct('');
+                  setSearchLocation('');
+                  setStartDate('');
+                  setEndDate('');
+                  setStatusFilter('All');
+                  setPaymentFilter('All');
+                  setDeliveryFilter('All');
+                }}
+                className="text-xs text-red-600 dark:text-red-400 font-bold hover:underline mb-2.5 shrink-0"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Mobile View - Hidden on Desktop */}
+        <div className="flex lg:hidden items-center justify-between p-4">
+          <div className="relative flex-1 mr-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={16} />
+            <input
+              type="text"
+              placeholder="Search by customer name..."
+              value={searchName}
+              onChange={(e) => setSearchName(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 text-gray-900 dark:text-white rounded-lg text-xs outline-none focus:ring-1 focus:ring-emerald-500"
+            />
+          </div>
+          <button
+            onClick={() => setIsFilterPopupOpen(true)}
+            className="relative flex items-center px-4 py-2 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-700 dark:text-gray-300 bg-white dark:bg-zinc-900 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors text-xs font-bold"
+          >
+            <Filter size={14} className="mr-1.5" />
+            Filters
+            {(() => {
+              const activeCount = [searchProduct, searchLocation, startDate, endDate, statusFilter !== 'All' ? 1 : 0, paymentFilter !== 'All' ? 1 : 0, deliveryFilter !== 'All' ? 1 : 0].filter(Boolean).length;
+              return activeCount > 0 ? (
+                <span className="ml-1.5 w-5 h-5 flex items-center justify-center bg-emerald-600 text-white rounded-full text-[9px] font-bold">
+                  {activeCount}
+                </span>
+              ) : null;
+            })()}
           </button>
         </div>
       </div>
+
+      {/* MOBILE FILTER POPUP DIALOG */}
+      {isFilterPopupOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-zinc-950 w-full max-w-md h-full shadow-2xl flex flex-col animate-in slide-in-from-bottom sm:slide-in-from-right duration-300">
+            <div className="px-6 py-5 border-b border-gray-100 dark:border-zinc-800 flex justify-between items-center bg-gray-50 dark:bg-zinc-900">
+              <h2 className="text-base font-bold text-gray-900 dark:text-white">Filter Bookings</h2>
+              <button
+                onClick={() => setIsFilterPopupOpen(false)}
+                className="p-1 hover:bg-gray-200 dark:hover:bg-zinc-800 rounded-full transition-colors text-gray-500 dark:text-gray-400"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 space-y-5">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2">Customer / Booking ID</label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={14} />
+                  <input
+                    type="text"
+                    placeholder="Search name, phone, ID..."
+                    value={searchName}
+                    onChange={(e) => setSearchName(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-800 text-gray-900 dark:text-white rounded-lg text-sm outline-none focus:ring-1 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2">Product Name</label>
+                <input
+                  type="text"
+                  placeholder="Filter by product..."
+                  value={searchProduct}
+                  onChange={(e) => setSearchProduct(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-800 text-gray-900 dark:text-white rounded-lg text-sm outline-none focus:ring-1 focus:ring-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2">Location / Area</label>
+                <input
+                  type="text"
+                  placeholder="Filter by location..."
+                  value={searchLocation}
+                  onChange={(e) => setSearchLocation(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-800 text-gray-900 dark:text-white rounded-lg text-sm outline-none focus:ring-1 focus:ring-emerald-500"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2">Delivery Start</label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-800 text-gray-900 dark:text-white rounded-lg text-sm outline-none focus:ring-1 focus:ring-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2">Delivery End</label>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-800 text-gray-900 dark:text-white rounded-lg text-sm outline-none focus:ring-1 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2">Booking Status</label>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-800 text-gray-900 dark:text-white rounded-lg text-sm outline-none focus:ring-1 focus:ring-emerald-500"
+                  >
+                    <option value="All">All Statuses</option>
+                    <option value="Active">Active</option>
+                    <option value="Completed">Completed</option>
+                    <option value="Cancelled">Cancelled</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2">Payment Status</label>
+                  <select
+                    value={paymentFilter}
+                    onChange={(e) => setPaymentFilter(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-800 text-gray-900 dark:text-white rounded-lg text-sm outline-none focus:ring-1 focus:ring-emerald-500"
+                  >
+                    <option value="All">All Payments</option>
+                    <option value="Fully Paid">Fully Paid</option>
+                    <option value="Partially Paid">Partially Paid</option>
+                    <option value="High Pending">High Pending (&gt;20k)</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2">Delivery Shortcut</label>
+                <select
+                  value={deliveryFilter}
+                  onChange={(e) => setDeliveryFilter(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-800 text-gray-900 dark:text-white rounded-lg text-sm outline-none focus:ring-1 focus:ring-emerald-500"
+                >
+                  <option value="All">All Deliveries</option>
+                  <option value="Upcoming">Upcoming (Next 3 Days)</option>
+                  <option value="Overdue">Overdue (Active)</option>
+                </select>
+              </div>
+            </div>
+            <div className="p-4 border-t border-gray-100 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-900/50 flex gap-3">
+              <button
+                onClick={() => {
+                  setSearchName('');
+                  setSearchProduct('');
+                  setSearchLocation('');
+                  setStartDate('');
+                  setEndDate('');
+                  setStatusFilter('All');
+                  setPaymentFilter('All');
+                  setDeliveryFilter('All');
+                }}
+                className="flex-1 py-2.5 border border-gray-300 dark:border-zinc-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-bold hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+              >
+                Reset All
+              </button>
+              <button
+                onClick={() => setIsFilterPopupOpen(false)}
+                className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-bold shadow transition-colors"
+              >
+                Apply Filters
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* LIST VIEW */}
       <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-gray-200 dark:border-zinc-800 overflow-hidden flex-1">
@@ -161,10 +480,10 @@ const BookingsList = () => {
               <thead className="bg-gray-50 dark:bg-zinc-950 sticky top-0 z-10">
                 <tr className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider border-b border-gray-200 dark:border-zinc-800">
                   <th className="px-6 py-4 font-medium">Booking ID</th>
-                  <th className="px-6 py-4 font-medium">Customer</th>
-                  <th className="px-6 py-4 font-medium">Date</th>
-                  <th className="px-6 py-4 font-medium text-right">Total</th>
-                  <th className="px-6 py-4 font-medium text-right">Balance</th>
+                  <th className="px-6 py-4 font-medium">Customer & Product</th>
+                  <th className="px-6 py-4 font-medium">Location</th>
+                  <th className="px-6 py-4 font-medium">Target Dates</th>
+                  <th className="px-6 py-4 font-medium text-right">Total / Balance</th>
                   <th className="px-6 py-4 font-medium text-center">Status</th>
                   <th className="px-6 py-4 font-medium text-right">Actions</th>
                 </tr>
@@ -172,6 +491,30 @@ const BookingsList = () => {
               <tbody className="divide-y divide-gray-200 dark:divide-zinc-800">
                 {filteredBookings.map((booking) => {
                   const balance = booking.totalAmount - booking.paidAmount;
+                  
+                  // Compute visual badges
+                  const isHighPending = balance >= 20000;
+                  const isPriorityCustomer = booking.totalAmount >= 50000;
+                  
+                  let isOverdue = false;
+                  let isUpcoming = false;
+                  
+                  if (booking.deliveryDate && booking.status === 'Active') {
+                    const dDate = new Date(booking.deliveryDate);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    
+                    if (dDate < today) {
+                      isOverdue = true;
+                    } else {
+                      const diffTime = dDate.getTime() - today.getTime();
+                      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                      if (diffDays <= 3) {
+                        isUpcoming = true;
+                      }
+                    }
+                  }
+
                   return (
                     <tr key={booking._id} className="hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer" onClick={() => setSelectedBooking(booking)}>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -179,21 +522,73 @@ const BookingsList = () => {
                           <CalendarDays size={14} className="mr-2 text-emerald-500" />
                           {booking.bookingId}
                         </div>
+                        {isPriorityCustomer && (
+                          <div className="mt-1 inline-block px-2 py-0.5 bg-[#D4AF37]/10 text-[#D4AF37] border border-[#D4AF37]/30 text-[9px] font-bold uppercase rounded tracking-wider">
+                            ★ VIP Customer
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="font-medium text-gray-900 dark:text-white">{booking.lead?.name || 'Unknown'}</div>
-                        <div className="text-xs text-gray-500">{booking.lead?.phone}</div>
+                        {booking.lead?.productName ? (
+                          <div className="text-xs text-amber-600 dark:text-amber-500 font-semibold mt-0.5">{booking.lead.productName}</div>
+                        ) : (
+                          <div className="text-xs text-gray-500">{booking.lead?.phone}</div>
+                        )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        {new Date(booking.createdAt).toLocaleDateString()}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <div className="font-medium text-gray-900 dark:text-white flex items-center gap-1.5">
+                          {booking.lead?.location || 'N/A'}
+                          {booking.lead?.locationType && (
+                            <span className={`px-1.5 py-0.5 text-[9px] font-bold rounded ${booking.lead.locationType === 'GPS' ? 'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-400' : 'bg-gray-100 text-gray-800 dark:bg-zinc-800 dark:text-gray-400'}`}>
+                              {booking.lead.locationType}
+                            </span>
+                          )}
+                        </div>
+                        {booking.lead?.latitude && booking.lead?.longitude && (
+                          <a 
+                            href={`https://www.google.com/maps/search/?api=1&query=${booking.lead.latitude},${booking.lead.longitude}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center text-[10px] text-blue-600 dark:text-blue-400 hover:underline mt-0.5 font-medium"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Navigation size={10} className="mr-1" /> View Map
+                          </a>
+                        )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right font-medium text-gray-900 dark:text-white">
-                        ₹{booking.totalAmount.toLocaleString('en-IN')}
+                      <td className="px-6 py-4 whitespace-nowrap text-xs">
+                        <div className="text-gray-500 dark:text-gray-400">Booked: {new Date(booking.createdAt).toLocaleDateString()}</div>
+                        {booking.deliveryDate ? (
+                          <div className="mt-1 flex items-center gap-1">
+                            <span className="font-semibold text-gray-700 dark:text-gray-300">
+                              Deliver: {new Date(booking.deliveryDate).toLocaleDateString()}
+                            </span>
+                            {isOverdue && (
+                              <span className="px-1.5 py-0.5 bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-400 font-bold rounded text-[9px] uppercase tracking-wide animate-pulse">
+                                Overdue
+                              </span>
+                            )}
+                            {isUpcoming && (
+                              <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400 font-bold rounded text-[9px] uppercase tracking-wide">
+                                Due Soon
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-gray-400 italic">No Delivery Date</div>
+                        )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <span className={`font-medium ${balance > 0 ? 'text-amber-600 dark:text-amber-500' : 'text-emerald-600 dark:text-emerald-500'}`}>
-                          ₹{balance.toLocaleString('en-IN')}
-                        </span>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-xs">
+                        <div className="font-bold text-gray-900 dark:text-white">₹{booking.totalAmount.toLocaleString('en-IN')}</div>
+                        <div className="mt-1">
+                          <span className={`font-semibold ${balance > 0 ? 'text-amber-600 dark:text-amber-500' : 'text-emerald-600 dark:text-emerald-500'}`}>
+                            Bal: ₹{balance.toLocaleString('en-IN')}
+                          </span>
+                          {isHighPending && balance > 0 && (
+                            <span className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-red-500" title="High Balance Alert" />
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
                         <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${getStatusColor(booking.status)}`}>
@@ -268,6 +663,12 @@ const BookingsList = () => {
             {/* Tabs */}
             <div className="px-6 border-b border-gray-100 dark:border-zinc-800 flex gap-6">
               <button
+                onClick={() => setActiveTab('details')}
+                className={`py-4 text-sm font-medium border-b-2 transition-colors flex items-center ${activeTab === 'details' ? 'border-emerald-500 text-emerald-600 dark:text-emerald-500' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
+              >
+                <FileText size={16} className="mr-2" /> Booking Details
+              </button>
+              <button
                 onClick={() => setActiveTab('overview')}
                 className={`py-4 text-sm font-medium border-b-2 transition-colors flex items-center ${activeTab === 'overview' ? 'border-emerald-500 text-emerald-600 dark:text-emerald-500' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
               >
@@ -283,6 +684,131 @@ const BookingsList = () => {
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-6 bg-gray-50/30 dark:bg-zinc-950 custom-scrollbar">
+
+              {activeTab === 'details' && (
+                <div className="space-y-6">
+                  {/* Customer Information Card */}
+                  <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl p-5 shadow-sm space-y-4">
+                    <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider">Customer Details</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <span className="block text-xs text-gray-500">Full Name</span>
+                        <span className="font-bold text-gray-900 dark:text-white text-base">{selectedBooking.lead?.name}</span>
+                      </div>
+                      <div>
+                        <span className="block text-xs text-gray-500">Contact Number</span>
+                        <span className="font-medium text-gray-900 dark:text-white">{selectedBooking.lead?.phone || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span className="block text-xs text-gray-500">Email Address</span>
+                        <span className="font-medium text-gray-900 dark:text-white break-all">{selectedBooking.lead?.email || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span className="block text-xs text-gray-500">Product / Service Interest</span>
+                        <span className="inline-block px-2.5 py-1 bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400 font-bold text-xs rounded-lg mt-0.5">
+                          {selectedBooking.lead?.productName || 'General Service'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Location Information Card */}
+                  <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl p-5 shadow-sm space-y-4">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider">Project Location Tracking</h3>
+                      {selectedBooking.lead?.locationType && (
+                        <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${selectedBooking.lead.locationType === 'GPS' ? 'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-400' : 'bg-gray-100 text-gray-800 dark:bg-zinc-850 dark:text-gray-400'}`}>
+                          {selectedBooking.lead.locationType} Capture
+                        </span>
+                      )}
+                    </div>
+                    <div className="space-y-3">
+                      <div>
+                        <span className="block text-xs text-gray-500">City / Area</span>
+                        <span className="font-bold text-gray-900 dark:text-white">{selectedBooking.lead?.location || 'Not Specified'}</span>
+                      </div>
+                      {selectedBooking.lead?.fullAddress && (
+                        <div>
+                          <span className="block text-xs text-gray-500">Full Delivery Address</span>
+                          <span className="font-medium text-gray-700 dark:text-gray-300 text-sm leading-relaxed block bg-gray-50 dark:bg-zinc-950 p-2.5 rounded-lg border border-gray-100 dark:border-zinc-900 mt-1">
+                            {selectedBooking.lead.fullAddress}
+                          </span>
+                        </div>
+                      )}
+                      {selectedBooking.lead?.latitude && selectedBooking.lead?.longitude && (
+                        <div className="pt-2">
+                          <span className="block text-xs text-gray-500 mb-1.5">GPS Coordinates</span>
+                          <a 
+                            href={`https://www.google.com/maps/search/?api=1&query=${selectedBooking.lead.latitude},${selectedBooking.lead.longitude}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs font-bold shadow-sm"
+                          >
+                            <Navigation size={14} className="mr-2" /> Navigate on Google Maps ({selectedBooking.lead.latitude.toFixed(5)}, {selectedBooking.lead.longitude.toFixed(5)})
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Delivery & Project Notes Card */}
+                  <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl p-5 shadow-sm space-y-4">
+                    <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider">Project Delivery Details</h3>
+                    <div className="space-y-3">
+                      <div>
+                        <span className="block text-xs text-gray-500">Expected Delivery Date</span>
+                        {selectedBooking.deliveryDate ? (
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="font-bold text-gray-900 dark:text-white text-base">
+                              {new Date(selectedBooking.deliveryDate).toLocaleDateString()}
+                            </span>
+                            {(() => {
+                              const dDate = new Date(selectedBooking.deliveryDate!);
+                              const today = new Date();
+                              today.setHours(0, 0, 0, 0);
+                              if (dDate < today && selectedBooking.status === 'Active') {
+                                return (
+                                  <span className="px-2 py-0.5 bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-400 font-bold rounded text-[10px] uppercase tracking-wide animate-pulse">
+                                    Overdue Delivery
+                                  </span>
+                                );
+                              }
+                              const diffTime = dDate.getTime() - today.getTime();
+                              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                              if (diffDays >= 0 && diffDays <= 3 && selectedBooking.status === 'Active') {
+                                return (
+                                  <span className="px-2 py-0.5 bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400 font-bold rounded text-[10px] uppercase tracking-wide">
+                                    Due in {diffDays} day{diffDays !== 1 ? 's' : ''}
+                                  </span>
+                                );
+                              }
+                              return null;
+                            })()}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 italic text-sm">Not scheduled</span>
+                        )}
+                      </div>
+                      {selectedBooking.notes && (
+                        <div>
+                          <span className="block text-xs text-gray-500">Booking Notes / Comments</span>
+                          <p className="font-medium text-gray-700 dark:text-gray-300 text-sm leading-relaxed block bg-gray-50 dark:bg-zinc-950 p-2.5 rounded-lg border border-gray-100 dark:border-zinc-900 mt-1 whitespace-pre-line">
+                            {selectedBooking.notes}
+                          </p>
+                        </div>
+                      )}
+                      {selectedBooking.lead?.notesRequirements && (
+                        <div>
+                          <span className="block text-xs text-gray-500 font-bold text-gray-400 mt-2">Initial Inquiry Requirements</span>
+                          <p className="font-medium text-gray-600 dark:text-gray-400 text-xs leading-relaxed block p-2 border border-gray-100 dark:border-zinc-800 rounded mt-1">
+                            {selectedBooking.lead.notesRequirements}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {activeTab === 'overview' && (
                 <div>

@@ -49,6 +49,7 @@ app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/leads', require('./routes/leadRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/quotations', require('./routes/quotationRoutes'));
+app.use('/api/quotation-masters', require('./routes/quotationMasterRoutes'));
 app.use('/api/bookings', require('./routes/bookingRoutes'));
 app.use('/api/expenses', require('./routes/expenseRoutes'));
 app.use('/api/dashboard', require('./routes/dashboardRoutes'));

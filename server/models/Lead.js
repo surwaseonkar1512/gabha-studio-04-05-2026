@@ -42,6 +42,30 @@ const leadSchema = new mongoose.Schema(
     productReference: {
       type: String, // Or ObjectId if referencing Product model later
     },
+    productName: {
+      type: String,
+      required: true,
+    },
+    location: {
+      type: String,
+    },
+    fullAddress: {
+      type: String,
+    },
+    latitude: {
+      type: Number,
+    },
+    longitude: {
+      type: Number,
+    },
+    locationType: {
+      type: String,
+      enum: ['GPS', 'Manual'],
+      default: 'Manual',
+    },
+    notesRequirements: {
+      type: String,
+    },
     hasQuotation: {
       type: Boolean,
       default: false

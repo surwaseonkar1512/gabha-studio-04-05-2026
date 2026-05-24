@@ -22,7 +22,7 @@ const uploadToCloudinary = (buffer) => {
 // @access  Private
 const createBookingWithAdvance = async (req, res) => {
   try {
-    let { leadId, quotationId, totalAmount, payment } = req.body;
+    let { leadId, quotationId, totalAmount, payment, deliveryDate, notes } = req.body;
     
     // If sent via FormData, payment might be stringified
     if (typeof payment === 'string') {
@@ -56,7 +56,9 @@ const createBookingWithAdvance = async (req, res) => {
       quotation: quotationId || undefined,
       totalAmount,
       paidAmount: payment.amount,
-      payments: [newPayment]
+      payments: [newPayment],
+      deliveryDate: deliveryDate || undefined,
+      notes: notes || undefined
     });
 
     // Update Lead stage
@@ -126,7 +128,7 @@ const addPayment = async (req, res) => {
 const getBookings = async (req, res) => {
   try {
     const bookings = await Booking.find()
-      .populate('lead', 'name phone email stage')
+      .populate('lead')
       .sort({ createdAt: -1 });
     res.json(bookings);
   } catch (error) {

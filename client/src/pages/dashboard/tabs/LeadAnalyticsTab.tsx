@@ -85,6 +85,37 @@ const LeadAnalyticsTab = ({ data }: { data: any }) => {
           </div>
         </div>
       </div>
+
+      {/* Product Popularity & Demand Analysis */}
+      <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-gray-100 dark:border-zinc-800 p-6">
+        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">Product Popularity & Demand</h3>
+        {leadAnalytics.productAnalytics && leadAnalytics.productAnalytics.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {leadAnalytics.productAnalytics.map((product: any, index: number) => {
+              const maxVal = Math.max(...leadAnalytics.productAnalytics.map((p: any) => p.value));
+              const percentage = maxVal > 0 ? (product.value / maxVal) * 100 : 0;
+              return (
+                <div key={index} className="bg-gray-50 dark:bg-zinc-950 p-4 border border-gray-100 dark:border-zinc-800/50 rounded-xl hover:-translate-y-1 transition-transform duration-300">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="font-bold text-gray-900 dark:text-white text-sm truncate pr-2">{product.name}</span>
+                    <span className="px-2.5 py-0.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 dark:border-amber-500/40 rounded-full text-[10px] font-bold shrink-0">
+                      {product.value} Inquir{product.value !== 1 ? 'ies' : 'y'}
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 dark:bg-zinc-800 h-2 rounded-full overflow-hidden">
+                    <div 
+                      className="bg-gradient-to-r from-amber-500 to-yellow-400 h-2 rounded-full transition-all duration-1000 animate-pulse"
+                      style={{ width: `${percentage}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-8 text-gray-500 italic">No product popularity data available yet.</div>
+        )}
+      </div>
     </div>
   );
 };

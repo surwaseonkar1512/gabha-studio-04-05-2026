@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, Filter, Phone, Mail, MoreVertical, LayoutGrid, List as ListIcon, GripVertical, FileText, Download, Send, Trash2, Calculator, X } from 'lucide-react';
+import { Plus, Search, Filter, Phone, Mail, MoreVertical, LayoutGrid, List as ListIcon, GripVertical, FileText, Download, Send, Trash2, Calculator, X, Navigation } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import toast from 'react-hot-toast';
 import api from '../../api/axiosInstance';
@@ -14,8 +14,16 @@ interface Lead {
   source: string;
   stage: string;
   createdAt: string;
+  productName: string;
+  location?: string;
+  fullAddress?: string;
+  latitude?: number;
+  longitude?: number;
+  locationType?: string;
+  notesRequirements?: string;
   hasQuotation?: boolean;
   quotationSkipped?: boolean;
+  message?: string
 }
 
 interface QuotationItem {
@@ -26,11 +34,96 @@ interface QuotationItem {
 const STAGES = ['New Lead', 'Contacted', 'Quote Sent', 'Booking', 'Completed'];
 
 const LeadsList = () => {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchName, setSearchName] = useState('');
+  const [searchProduct, setSearchProduct] = useState('');
+  const [searchLocation, setSearchLocation] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [isFilterPopupOpen, setIsFilterPopupOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'board'>('board');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [newLeadData, setNewLeadData] = useState({ name: '', phone: '', email: '', message: '' });
-  
+  const [newLeadData, setNewLeadData] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    productName: '',
+    location: '',
+    fullAddress: '',
+    notesRequirements: '',
+    latitude: '' as string | number,
+    longitude: '' as string | number,
+    locationType: 'Manual'
+  });
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsSuccess, setGpsSuccess] = useState(false);
+
+  const handleGPSCapture = () => {
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by your browser');
+      return;
+    }
+    setGpsLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+
+        // Reverse geocoding via OpenStreetMap Nominatim
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1`, {
+          headers: { 'Accept-Language': 'en' }
+        })
+          .then(res => res.json())
+          .then(data => {
+            let detectedLoc = '';
+            if (data && data.address) {
+              const addr = data.address;
+              const parts = [
+                addr.suburb || addr.neighbourhood || addr.village || addr.quarter || addr.subdivision,
+                addr.city || addr.town || addr.municipality || addr.county,
+                addr.state || addr.region
+              ].filter(Boolean);
+              if (parts.length > 0) {
+                detectedLoc = parts.join(', ');
+              } else if (data.display_name) {
+                detectedLoc = data.display_name.split(',').slice(0, 3).join(',').trim();
+              }
+            }
+
+            setNewLeadData(prev => ({
+              ...prev,
+              latitude: lat,
+              longitude: lon,
+              locationType: 'GPS',
+              location: detectedLoc || `GPS Location (${lat.toFixed(4)}, ${lon.toFixed(4)})`,
+              fullAddress: prev.fullAddress || data.display_name || ''
+            }));
+            setGpsLoading(false);
+            setGpsSuccess(true);
+            toast.success('Live location captured successfully!');
+          })
+          .catch(err => {
+            console.error('Reverse geocoding error:', err);
+            setNewLeadData(prev => ({
+              ...prev,
+              latitude: lat,
+              longitude: lon,
+              locationType: 'GPS',
+              location: prev.location || `GPS Location (${lat.toFixed(4)}, ${lon.toFixed(4)})`
+            }));
+            setGpsLoading(false);
+            setGpsSuccess(true);
+            toast.success('Live location captured successfully!');
+          });
+      },
+      (error) => {
+        console.error(error);
+        toast.error('Could not retrieve your location. Please enter it manually.');
+        setGpsLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+    );
+  };
+
   // Manage Lead Modal State
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [activeTab, setActiveTab] = useState<'details' | 'quotations'>('details');
@@ -40,7 +133,14 @@ const LeadsList = () => {
 
   // Advance Payment Modal State
   const [advanceModalState, setAdvanceModalState] = useState<{ isOpen: boolean; leadId: string; quotationId?: string; totalAmount: number | string } | null>(null);
-  const [advancePaymentData, setAdvancePaymentData] = useState({ amount: '', date: new Date().toISOString().split('T')[0], method: 'UPI', reference: '', notes: '' });
+  const [advancePaymentData, setAdvancePaymentData] = useState({
+    amount: '',
+    date: new Date().toISOString().split('T')[0],
+    method: 'UPI',
+    reference: '',
+    notes: '',
+    deliveryDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  });
   const [paymentProofs, setPaymentProofs] = useState<File[]>([]);
 
   // Quote Intercept Modal State
@@ -75,7 +175,9 @@ const LeadsList = () => {
       if (data.quotationId) formData.append('quotationId', data.quotationId);
       formData.append('totalAmount', data.totalAmount.toString());
       formData.append('payment', JSON.stringify(data.payment));
-      
+      if (data.deliveryDate) formData.append('deliveryDate', data.deliveryDate);
+      if (data.notes) formData.append('notes', data.notes);
+
       if (data.proofs) {
         data.proofs.forEach((file: File) => formData.append('proofs', file));
       }
@@ -88,7 +190,14 @@ const LeadsList = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leads'] });
       setAdvanceModalState(null);
-      setAdvancePaymentData({ amount: '', date: new Date().toISOString().split('T')[0], method: 'UPI', reference: '', notes: '' });
+      setAdvancePaymentData({
+        amount: '',
+        date: new Date().toISOString().split('T')[0],
+        method: 'UPI',
+        reference: '',
+        notes: '',
+        deliveryDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      });
       setPaymentProofs([]);
       toast.success('Booking created & Advance payment recorded');
     },
@@ -110,6 +219,14 @@ const LeadsList = () => {
       return data;
     },
     enabled: !!selectedLead && activeTab === 'quotations'
+  });
+
+  const { data: masters } = useQuery<any[]>({
+    queryKey: ['quotation-masters-list'],
+    queryFn: async () => {
+      const { data } = await api.get('/quotation-masters');
+      return data;
+    }
   });
 
   const updateLeadStageMutation = useMutation({
@@ -138,7 +255,19 @@ const LeadsList = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leads'] });
       setIsAddModalOpen(false);
-      setNewLeadData({ name: '', phone: '', email: '', message: '' });
+      setNewLeadData({
+        name: '',
+        phone: '',
+        email: '',
+        productName: '',
+        location: '',
+        fullAddress: '',
+        notesRequirements: '',
+        latitude: '',
+        longitude: '',
+        locationType: 'Manual'
+      });
+      setGpsSuccess(false);
       toast.success('Lead added successfully');
     },
     onError: () => toast.error('Failed to add lead')
@@ -182,10 +311,32 @@ const LeadsList = () => {
     }
   };
 
-  const filteredLeads = leads?.filter(lead => 
-    lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    lead.phone.includes(searchTerm)
-  ) || [];
+  const filteredLeads = leads?.filter(lead => {
+    if (searchName) {
+      const matchName = lead.name.toLowerCase().includes(searchName.toLowerCase());
+      const matchPhone = lead.phone.includes(searchName);
+      if (!matchName && !matchPhone) return false;
+    }
+    if (searchProduct) {
+      if (!lead.productName || !lead.productName.toLowerCase().includes(searchProduct.toLowerCase())) return false;
+    }
+    if (searchLocation) {
+      if (!lead.location || !lead.location.toLowerCase().includes(searchLocation.toLowerCase())) return false;
+    }
+    if (startDate) {
+      const leadTime = new Date(lead.createdAt).getTime();
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      if (leadTime < start.getTime()) return false;
+    }
+    if (endDate) {
+      const leadTime = new Date(lead.createdAt).getTime();
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      if (leadTime > end.getTime()) return false;
+    }
+    return true;
+  }) || [];
 
   const handleDragEnd = async (result: DropResult) => {
     const { destination, source, draggableId } = result;
@@ -231,7 +382,7 @@ const LeadsList = () => {
 
     const previousLeads = queryClient.getQueryData<Lead[]>(['leads']);
     if (previousLeads) {
-      const updatedLeads = previousLeads.map(l => 
+      const updatedLeads = previousLeads.map(l =>
         l._id === leadId ? { ...l, stage: newStage } : l
       );
       queryClient.setQueryData(['leads'], updatedLeads);
@@ -243,7 +394,7 @@ const LeadsList = () => {
   const handleQuoteSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedLead) return;
-    
+
     // Validate items
     const validItems = quoteItems.filter(item => item.description.trim() !== '' && item.amount !== '');
     if (validItems.length === 0) {
@@ -282,20 +433,20 @@ const LeadsList = () => {
         </div>
         <div className="flex items-center gap-4">
           <div className="bg-gray-100 dark:bg-zinc-800 p-1 rounded-lg flex items-center">
-            <button 
+            <button
               onClick={() => setViewMode('list')}
               className={`p-1.5 rounded-md transition-colors ${viewMode === 'list' ? 'bg-white dark:bg-zinc-700 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}`}
             >
               <ListIcon size={18} />
             </button>
-            <button 
+            <button
               onClick={() => setViewMode('board')}
               className={`p-1.5 rounded-md transition-colors ${viewMode === 'board' ? 'bg-white dark:bg-zinc-700 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}`}
             >
               <LayoutGrid size={18} />
             </button>
           </div>
-          <button 
+          <button
             onClick={() => setIsAddModalOpen(true)}
             className="flex items-center px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors shadow-sm font-medium"
           >
@@ -304,23 +455,200 @@ const LeadsList = () => {
         </div>
       </div>
 
+      {/* FILTER CONTROL PANEL */}
       <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-gray-200 dark:border-zinc-800 overflow-hidden flex-shrink-0">
-        <div className="p-4 flex flex-col sm:flex-row gap-4 justify-between">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
+        {/* Desktop Layout - Hidden on mobile */}
+        <div className="hidden lg:grid lg:grid-cols-5 gap-4 p-4">
+          <div className="relative">
+            <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1">Customer Name / Phone</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={14} />
+              <input
+                type="text"
+                placeholder="Search name or phone..."
+                value={searchName}
+                onChange={(e) => setSearchName(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 text-gray-900 dark:text-white rounded-lg text-xs outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition-all"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1">Product / Service</label>
             <input
               type="text"
-              placeholder="Search leads by name or phone..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-sm transition-all"
+              placeholder="Search product..."
+              value={searchProduct}
+              onChange={(e) => setSearchProduct(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 text-gray-900 dark:text-white rounded-lg text-xs outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition-all"
             />
           </div>
-          <button className="flex items-center px-3 py-2 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors text-sm font-medium">
-            <Filter size={16} className="mr-2" /> Filter
+          <div>
+            <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1">Location / Area</label>
+            <input
+              type="text"
+              placeholder="Search location..."
+              value={searchLocation}
+              onChange={(e) => setSearchLocation(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 text-gray-900 dark:text-white rounded-lg text-xs outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition-all"
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1">Created From</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 text-gray-900 dark:text-white rounded-lg text-xs outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition-all"
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1">Created To</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 text-gray-900 dark:text-white rounded-lg text-xs outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition-all"
+              />
+              {(searchName || searchProduct || searchLocation || startDate || endDate) && (
+                <button
+                  onClick={() => {
+                    setSearchName('');
+                    setSearchProduct('');
+                    setSearchLocation('');
+                    setStartDate('');
+                    setEndDate('');
+                  }}
+                  className="text-xs text-red-600 dark:text-red-400 font-bold hover:underline shrink-0"
+                >
+                  Reset
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Mobile View - Hidden on Desktop */}
+        <div className="flex lg:hidden items-center justify-between p-4">
+          <div className="relative flex-1 mr-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={16} />
+            <input
+              type="text"
+              placeholder="Quick search by name..."
+              value={searchName}
+              onChange={(e) => setSearchName(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 text-gray-900 dark:text-white rounded-lg text-xs outline-none focus:ring-1 focus:ring-amber-500"
+            />
+          </div>
+          <button
+            onClick={() => setIsFilterPopupOpen(true)}
+            className="relative flex items-center px-4 py-2 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-700 dark:text-gray-300 bg-white dark:bg-zinc-900 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors text-xs font-bold"
+          >
+            <Filter size={14} className="mr-1.5" />
+            Filters
+            {(() => {
+              const activeCount = [searchProduct, searchLocation, startDate, endDate].filter(Boolean).length;
+              return activeCount > 0 ? (
+                <span className="ml-1.5 w-5 h-5 flex items-center justify-center bg-amber-500 text-white rounded-full text-[9px] font-bold">
+                  {activeCount}
+                </span>
+              ) : null;
+            })()}
           </button>
         </div>
       </div>
+
+      {/* MOBILE FILTER POPUP DIALOG */}
+      {isFilterPopupOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-zinc-950 w-full max-w-md h-full shadow-2xl flex flex-col animate-in slide-in-from-bottom sm:slide-in-from-right duration-300">
+            <div className="px-6 py-5 border-b border-gray-100 dark:border-zinc-800 flex justify-between items-center bg-gray-50 dark:bg-zinc-900">
+              <h2 className="text-base font-bold text-gray-900 dark:text-white">Filter CRM Leads</h2>
+              <button
+                onClick={() => setIsFilterPopupOpen(false)}
+                className="p-1 hover:bg-gray-200 dark:hover:bg-zinc-800 rounded-full transition-colors text-gray-500 dark:text-gray-400"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 space-y-5">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2">Customer Name or Phone</label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={14} />
+                  <input
+                    type="text"
+                    placeholder="Search name or phone..."
+                    value={searchName}
+                    onChange={(e) => setSearchName(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-800 text-gray-900 dark:text-white rounded-lg text-sm outline-none focus:ring-1 focus:ring-amber-500"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2">Product Name</label>
+                <input
+                  type="text"
+                  placeholder="Filter by product..."
+                  value={searchProduct}
+                  onChange={(e) => setSearchProduct(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-800 text-gray-900 dark:text-white rounded-lg text-sm outline-none focus:ring-1 focus:ring-amber-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2">Location / City</label>
+                <input
+                  type="text"
+                  placeholder="Filter by location..."
+                  value={searchLocation}
+                  onChange={(e) => setSearchLocation(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-800 text-gray-900 dark:text-white rounded-lg text-sm outline-none focus:ring-1 focus:ring-amber-500"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2">From Date</label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-800 text-gray-900 dark:text-white rounded-lg text-sm outline-none focus:ring-1 focus:ring-amber-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2">To Date</label>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-800 text-gray-900 dark:text-white rounded-lg text-sm outline-none focus:ring-1 focus:ring-amber-500"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="p-4 border-t border-gray-100 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-900/50 flex gap-3">
+              <button
+                onClick={() => {
+                  setSearchName('');
+                  setSearchProduct('');
+                  setSearchLocation('');
+                  setStartDate('');
+                  setEndDate('');
+                }}
+                className="flex-1 py-2.5 border border-gray-300 dark:border-zinc-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-bold hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+              >
+                Reset All
+              </button>
+              <button
+                onClick={() => setIsFilterPopupOpen(false)}
+                className="flex-1 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-bold shadow transition-colors"
+              >
+                Apply Filters
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* BOARD VIEW */}
       {viewMode === 'board' && (
@@ -329,7 +657,7 @@ const LeadsList = () => {
             <div className="flex gap-6 min-w-max h-full items-start">
               {STAGES.map(stage => {
                 const stageLeads = filteredLeads.filter(l => l.stage === stage);
-                
+
                 return (
                   <div key={stage} className="w-80 flex flex-col bg-gray-50 dark:bg-zinc-950/50 rounded-xl border border-gray-200 dark:border-zinc-800/50 max-h-full">
                     <div className="p-4 border-b border-gray-200 dark:border-zinc-800/50 flex justify-between items-center bg-white/50 dark:bg-zinc-900/50 rounded-t-xl">
@@ -338,7 +666,7 @@ const LeadsList = () => {
                         {stageLeads.length}
                       </span>
                     </div>
-                    
+
                     <Droppable droppableId={stage}>
                       {(provided, snapshot) => (
                         <div
@@ -360,7 +688,12 @@ const LeadsList = () => {
                                     <h4 className="font-bold text-gray-900 dark:text-white text-sm">{lead.name}</h4>
                                     <GripVertical className="text-gray-300 dark:text-zinc-600 h-4 w-4" />
                                   </div>
-                                  <div className="space-y-1 mb-3">
+                                  <div className="space-y-1.5 mb-3">
+                                    {lead.productName && (
+                                      <div className="inline-block px-2 py-0.5 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-900/50 text-[11px] font-bold rounded-md">
+                                        {lead.productName}
+                                      </div>
+                                    )}
                                     <div className="flex items-center text-xs text-gray-600 dark:text-gray-400">
                                       <Phone size={12} className="mr-1.5" /> {lead.phone}
                                     </div>
@@ -421,6 +754,9 @@ const LeadsList = () => {
                     <tr key={lead._id} className="hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="font-medium text-gray-900 dark:text-white">{lead.name}</div>
+                        {lead.productName && (
+                          <div className="text-xs text-amber-600 dark:text-amber-500 font-semibold">{lead.productName}</div>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center text-sm text-gray-600 dark:text-gray-400 mb-1">
@@ -434,22 +770,22 @@ const LeadsList = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {lead.hasQuotation ? (
-                           <span className="flex items-center text-blue-600 dark:text-blue-400 text-sm font-medium">
-                             <FileText size={14} className="mr-1" /> Quoted
-                           </span>
+                          <span className="flex items-center text-blue-600 dark:text-blue-400 text-sm font-medium">
+                            <FileText size={14} className="mr-1" /> Quoted
+                          </span>
                         ) : lead.quotationSkipped ? (
-                           <span className="flex items-center text-gray-500 dark:text-gray-400 text-sm font-medium">
-                             Skipped
-                           </span>
+                          <span className="flex items-center text-gray-500 dark:text-gray-400 text-sm font-medium">
+                            Skipped
+                          </span>
                         ) : (
-                           <span className="text-gray-400 dark:text-zinc-500 text-sm">-</span>
+                          <span className="text-gray-400 dark:text-zinc-500 text-sm">-</span>
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                         {new Date(lead.createdAt).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button 
+                        <button
                           onClick={() => setSelectedLead(lead)}
                           className="px-3 py-1.5 bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors"
                         >
@@ -497,7 +833,7 @@ const LeadsList = () => {
               </div>
               <div className="flex items-center gap-2">
                 {(selectedLead.stage === 'New Lead' || selectedLead.stage === 'Contacted') && (
-                  <button 
+                  <button
                     onClick={() => setDeleteConfirmState(selectedLead._id)}
                     disabled={deleteLeadMutation.isPending}
                     className="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded-full transition-colors disabled:opacity-50"
@@ -506,7 +842,7 @@ const LeadsList = () => {
                     <Trash2 size={20} />
                   </button>
                 )}
-                <button 
+                <button
                   onClick={() => {
                     setSelectedLead(null);
                     setIsQuoting(false);
@@ -520,13 +856,13 @@ const LeadsList = () => {
 
             {/* Tabs */}
             <div className="px-6 border-b border-gray-100 dark:border-zinc-800 flex gap-6">
-              <button 
+              <button
                 onClick={() => { setActiveTab('details'); setIsQuoting(false); }}
                 className={`py-4 text-sm font-medium border-b-2 transition-colors ${activeTab === 'details' ? 'border-amber-500 text-amber-600 dark:text-amber-500' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
               >
                 Lead Details
               </button>
-              <button 
+              <button
                 onClick={() => setActiveTab('quotations')}
                 className={`py-4 text-sm font-medium border-b-2 transition-colors flex items-center ${activeTab === 'quotations' ? 'border-amber-500 text-amber-600 dark:text-amber-500' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
               >
@@ -537,7 +873,7 @@ const LeadsList = () => {
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-              
+
               {activeTab === 'details' && (
                 <div className="space-y-6">
                   <div className="bg-gray-50 dark:bg-zinc-900/50 p-5 rounded-xl border border-gray-100 dark:border-zinc-800">
@@ -561,6 +897,63 @@ const LeadsList = () => {
                       </div>
                     </div>
                   </div>
+
+                  {/* Product & Location Tracking card */}
+                  <div className="bg-gray-50 dark:bg-zinc-900/50 p-5 rounded-xl border border-gray-100 dark:border-zinc-800">
+                    <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Product & Location Details</h3>
+                    <div className="space-y-4">
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Product/Service Interest</p>
+                        <span className="inline-block px-3 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 font-bold rounded-lg text-xs uppercase tracking-wide">
+                          {selectedLead.productName || 'General Service'}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Location/City</p>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedLead.location || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Location Type</p>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">
+                            {selectedLead.locationType ? (
+                              <span className={`px-2 py-0.5 rounded text-xs font-bold ${selectedLead.locationType === 'GPS' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' : 'bg-gray-100 text-gray-800 dark:bg-zinc-800 dark:text-gray-400'}`}>
+                                {selectedLead.locationType}
+                              </span>
+                            ) : 'Manual'}
+                          </p>
+                        </div>
+                      </div>
+                      {selectedLead.latitude && selectedLead.longitude && (
+                        <div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">GPS Coordinates</p>
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${selectedLead.latitude},${selectedLead.longitude}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline gap-1.5"
+                          >
+                            <Navigation size={12} className="text-blue-500" />
+                            {Number(selectedLead.latitude).toFixed(6)}, {Number(selectedLead.longitude).toFixed(6)} (Open in Google Maps)
+                          </a>
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Full Address</p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white leading-relaxed bg-white dark:bg-zinc-950 p-3 rounded-lg border border-gray-100 dark:border-zinc-900 min-h-[60px] whitespace-pre-line">
+                          {selectedLead.fullAddress || 'N/A'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Requirements / Notes card */}
+                  <div className="bg-gray-50 dark:bg-zinc-900/50 p-5 rounded-xl border border-gray-100 dark:border-zinc-800">
+                    <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Customer Inquiry Notes</h3>
+                    <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed bg-white dark:bg-zinc-950 p-3 rounded-lg border border-gray-100 dark:border-zinc-900 min-h-[80px] whitespace-pre-line">
+                      {selectedLead.notesRequirements || selectedLead.notesRequirements === '' ? selectedLead.notesRequirements : (selectedLead?.message || 'No requirements specified.')}
+                    </p>
+                  </div>
                 </div>
               )}
 
@@ -570,7 +963,7 @@ const LeadsList = () => {
                     <div>
                       <div className="flex justify-between items-center mb-6">
                         <h3 className="text-lg font-bold text-gray-900 dark:text-white">Quotation History</h3>
-                        <button 
+                        <button
                           onClick={() => setIsQuoting(true)}
                           disabled={selectedLead.stage === 'New Lead' || selectedLead.stage === 'Completed'}
                           className="flex items-center px-4 py-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-lg hover:bg-zinc-800 dark:hover:bg-gray-100 transition-colors text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
@@ -609,13 +1002,13 @@ const LeadsList = () => {
                                 </div>
                               </div>
                               <div className="flex gap-3 pt-4 border-t border-gray-100 dark:border-zinc-800">
-                                <button 
+                                <button
                                   onClick={() => window.open(`http://localhost:5000/api/quotations/${quote._id}/pdf`, '_blank')}
                                   className="flex-1 flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-zinc-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors text-sm font-medium"
                                 >
                                   <Download size={16} className="mr-2" /> Download PDF
                                 </button>
-                                <button 
+                                <button
                                   onClick={() => {
                                     const text = `Hello ${selectedLead.name},\n\nHere is your quotation (${quote.quotationNumber}) for ₹${quote.total.toLocaleString('en-IN')}.\n\nYou can download the PDF here: http://localhost:5000/api/quotations/${quote._id}/pdf\n\nBest regards,\nGabha Studio`;
                                     window.open(`https://wa.me/${selectedLead.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(text)}`, '_blank');
@@ -634,8 +1027,8 @@ const LeadsList = () => {
                     <form onSubmit={handleQuoteSubmit} className="animate-in fade-in slide-in-from-bottom-4 duration-300">
                       <div className="flex justify-between items-center mb-6">
                         <h3 className="text-lg font-bold text-gray-900 dark:text-white">Build Quotation</h3>
-                        <button 
-                          type="button" 
+                        <button
+                          type="button"
                           onClick={() => { setIsQuoting(false); setQuoteItems([{ description: '', amount: '' }]); }}
                           className="text-sm font-medium text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white"
                         >
@@ -643,10 +1036,36 @@ const LeadsList = () => {
                         </button>
                       </div>
 
+                      <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 p-4 rounded-xl mb-6 space-y-2">
+                        <div className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400 font-bold text-xs">
+                          Load from Quotation Master (Templates)
+                        </div>
+                        <select
+                          onChange={(e) => {
+                            const selectedId = e.target.value;
+                            if (selectedId) {
+                              const master = masters?.find(m => m._id === selectedId);
+                              if (master) {
+                                setQuoteItems(master.items.map((item: any) => ({ description: item.description, amount: String(item.amount) })));
+                                toast.success(`Loaded "${master.name}" template rows!`);
+                              }
+                            }
+                            e.target.value = '';
+                          }}
+                          className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-gray-300 dark:border-zinc-800 text-gray-900 dark:text-white rounded-lg text-xs outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
+                          defaultValue=""
+                        >
+                          <option value="">-- Choose a pre-defined master package template --</option>
+                          {masters?.map(m => (
+                            <option key={m._id} value={m._id}>{m.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
                       <div className="bg-gray-50 dark:bg-zinc-900/50 rounded-xl p-5 border border-gray-200 dark:border-zinc-800 mb-6">
                         <div className="flex justify-between items-end mb-4 border-b border-gray-200 dark:border-zinc-800 pb-4">
                           <h4 className="font-bold text-gray-800 dark:text-gray-200 text-sm uppercase tracking-wider">Line Items</h4>
-                          
+
                           <label className="flex items-center cursor-pointer">
                             <div className="relative">
                               <input type="checkbox" className="sr-only" checked={gstEnabled} onChange={() => setGstEnabled(!gstEnabled)} />
@@ -661,9 +1080,9 @@ const LeadsList = () => {
                           {quoteItems.map((item, index) => (
                             <div key={index} className="flex gap-3 items-start group">
                               <div className="flex-1">
-                                <input 
-                                  type="text" 
-                                  placeholder="Description (e.g. Pre-wedding Shoot, Album)" 
+                                <input
+                                  type="text"
+                                  placeholder="Description (e.g. Pre-wedding Shoot, Album)"
                                   value={item.description}
                                   onChange={(e) => updateQuoteItem(index, 'description', e.target.value)}
                                   className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-gray-900 dark:text-white text-sm"
@@ -671,9 +1090,9 @@ const LeadsList = () => {
                                 />
                               </div>
                               <div className="w-32">
-                                <input 
-                                  type="number" 
-                                  placeholder="Amount" 
+                                <input
+                                  type="number"
+                                  placeholder="Amount"
                                   value={item.amount}
                                   onChange={(e) => updateQuoteItem(index, 'amount', e.target.value)}
                                   className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-gray-900 dark:text-white text-sm"
@@ -681,8 +1100,8 @@ const LeadsList = () => {
                                 />
                               </div>
                               {quoteItems.length > 1 && (
-                                <button 
-                                  type="button" 
+                                <button
+                                  type="button"
                                   onClick={() => removeQuoteItem(index)}
                                   className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors mt-0.5"
                                 >
@@ -693,8 +1112,8 @@ const LeadsList = () => {
                           ))}
                         </div>
 
-                        <button 
-                          type="button" 
+                        <button
+                          type="button"
                           onClick={addQuoteItem}
                           className="mt-4 flex items-center text-sm font-bold text-amber-600 dark:text-amber-500 hover:text-amber-700 transition-colors"
                         >
@@ -720,7 +1139,7 @@ const LeadsList = () => {
                       </div>
 
                       <div className="flex justify-end gap-3 sticky bottom-0 bg-white dark:bg-zinc-950 pt-4 pb-2 border-t border-gray-100 dark:border-zinc-800">
-                        <button 
+                        <button
                           type="submit"
                           disabled={createQuotationMutation.isPending}
                           className="px-6 py-2.5 bg-amber-600 text-white font-bold rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50 shadow-sm flex items-center"
@@ -743,70 +1162,116 @@ const LeadsList = () => {
           <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="p-6 border-b border-gray-100 dark:border-zinc-800 flex justify-between items-center">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white">Add New Lead</h3>
-              <button 
+              <button
                 onClick={() => setIsAddModalOpen(false)}
                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl leading-none"
               >
                 &times;
               </button>
             </div>
-            <form 
+            <form
               onSubmit={(e) => {
                 e.preventDefault();
                 createLeadMutation.mutate(newLeadData);
               }}
-              className="p-6 space-y-4"
+              className="p-6 space-y-4 max-h-[70vh] overflow-y-auto"
             >
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name *</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   required
                   value={newLeadData.name}
-                  onChange={e => setNewLeadData({...newLeadData, name: e.target.value})}
+                  onChange={e => setNewLeadData({ ...newLeadData, name: e.target.value })}
                   className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-gray-900 dark:text-white"
                   placeholder="John Doe"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone Number *</label>
-                <input 
-                  type="tel" 
+                <input
+                  type="tel"
                   required
                   value={newLeadData.phone}
-                  onChange={e => setNewLeadData({...newLeadData, phone: e.target.value})}
+                  onChange={e => setNewLeadData({ ...newLeadData, phone: e.target.value })}
                   className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-gray-900 dark:text-white"
                   placeholder="+91 9876543210"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Address</label>
-                <input 
-                  type="email" 
+                <input
+                  type="email"
                   value={newLeadData.email}
-                  onChange={e => setNewLeadData({...newLeadData, email: e.target.value})}
+                  onChange={e => setNewLeadData({ ...newLeadData, email: e.target.value })}
                   className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-gray-900 dark:text-white"
                   placeholder="john@example.com"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Initial Message / Notes</label>
-                <textarea 
-                  value={newLeadData.message}
-                  onChange={e => setNewLeadData({...newLeadData, message: e.target.value})}
-                  className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-gray-900 dark:text-white resize-none h-24"
-                  placeholder="Interested in wedding photography..."
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Product/Service Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={newLeadData.productName}
+                  onChange={e => setNewLeadData({ ...newLeadData, productName: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-gray-900 dark:text-white"
+                  placeholder="e.g. Fine Art Portrait"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Customer Location (City/Area)</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newLeadData.location}
+                    onChange={e => setNewLeadData({ ...newLeadData, location: e.target.value })}
+                    className="flex-1 px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-gray-900 dark:text-white"
+                    placeholder="e.g. Mumbai"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleGPSCapture}
+                    disabled={gpsLoading}
+                    className={`px-3 py-2 border rounded-lg flex items-center justify-center gap-1 font-bold text-xs uppercase tracking-wider transition-colors ${gpsSuccess ? 'bg-green-600 border-green-600 text-white' : 'bg-white border-black text-black hover:bg-black hover:text-white dark:bg-zinc-900 dark:border-zinc-700 dark:text-white dark:hover:bg-white dark:hover:text-black'}`}
+                  >
+                    <Navigation className={`h-3 w-3 ${gpsLoading ? 'animate-spin' : ''}`} />
+                    {gpsLoading ? '...' : gpsSuccess ? 'GPS ✓' : 'GPS'}
+                  </button>
+                </div>
+                {gpsSuccess && (
+                  <p className="text-xs text-green-600 dark:text-green-400 mt-1 font-medium">
+                    ✓ Coordinates: {Number(newLeadData.latitude).toFixed(4)}, {Number(newLeadData.longitude).toFixed(4)}
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Address</label>
+                <textarea
+                  value={newLeadData.fullAddress}
+                  onChange={e => setNewLeadData({ ...newLeadData, fullAddress: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-gray-900 dark:text-white resize-none h-16"
+                  placeholder="Street address..."
                 ></textarea>
               </div>
-              <div className="pt-4 flex justify-end gap-3">
-                <button 
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes / Requirements</label>
+                <textarea
+                  value={newLeadData.notesRequirements}
+                  onChange={e => setNewLeadData({ ...newLeadData, notesRequirements: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-gray-900 dark:text-white resize-none h-20"
+                  placeholder="Inquiry requirements..."
+                ></textarea>
+              </div>
+              <div className="pt-4 flex justify-end gap-3 sticky bottom-0 bg-white dark:bg-zinc-900 border-t border-gray-100 dark:border-zinc-800">
+                <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
                   className="px-4 py-2 text-gray-600 dark:text-gray-400 font-medium hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   type="submit"
                   disabled={createLeadMutation.isPending}
                   className="px-4 py-2 bg-amber-600 text-white font-medium rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50"
@@ -827,7 +1292,7 @@ const LeadsList = () => {
               You are moving this lead to the "Quote Sent" stage. Would you like to build a formal quotation now, or continue without one?
             </p>
             <div className="flex flex-col gap-3">
-              <button 
+              <button
                 onClick={() => {
                   // 1. Mutate lead stage
                   updateLeadStageMutation.mutate({ id: quoteInterceptState.leadId, stage: 'Quote Sent' });
@@ -845,7 +1310,7 @@ const LeadsList = () => {
               >
                 <Calculator size={18} className="mr-2" /> Create Quotation Now
               </button>
-              <button 
+              <button
                 onClick={() => {
                   // Mutate lead stage and set skipped flag
                   updateLeadStageMutation.mutate({ id: quoteInterceptState.leadId, stage: 'Quote Sent', quotationSkipped: true });
@@ -855,7 +1320,7 @@ const LeadsList = () => {
               >
                 Continue Without Quotation
               </button>
-              <button 
+              <button
                 onClick={() => setQuoteInterceptState(null)}
                 className="w-full px-4 py-2 mt-2 text-gray-500 dark:text-gray-400 font-medium hover:text-gray-800 dark:hover:text-white transition-colors"
               >
@@ -872,20 +1337,22 @@ const LeadsList = () => {
           <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="p-6 border-b border-gray-100 dark:border-zinc-800 flex justify-between items-center bg-emerald-50 dark:bg-emerald-900/20">
               <h3 className="text-lg font-bold text-emerald-900 dark:text-emerald-400">Confirm Booking (Advance Payment)</h3>
-              <button 
+              <button
                 onClick={() => setAdvanceModalState(null)}
                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl leading-none"
               >
                 &times;
               </button>
             </div>
-            <form 
+            <form
               onSubmit={(e) => {
                 e.preventDefault();
                 createBookingMutation.mutate({
                   leadId: advanceModalState.leadId,
                   quotationId: advanceModalState.quotationId,
                   totalAmount: Number(advanceModalState.totalAmount),
+                  deliveryDate: advancePaymentData.deliveryDate,
+                  notes: advancePaymentData.notes,
                   payment: {
                     amount: Number(advancePaymentData.amount),
                     date: advancePaymentData.date,
@@ -896,25 +1363,35 @@ const LeadsList = () => {
                   proofs: paymentProofs
                 });
               }}
-              className="p-6 space-y-4"
+              className="p-6 space-y-4 max-h-[70vh] overflow-y-auto"
             >
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Total Project Amount (Rs) *</label>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   required
                   value={advanceModalState.totalAmount}
-                  onChange={e => setAdvanceModalState({...advanceModalState, totalAmount: e.target.value})}
+                  onChange={e => setAdvanceModalState({ ...advanceModalState, totalAmount: e.target.value })}
                   className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-gray-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Expected Delivery Date *</label>
+                <input
+                  type="date"
+                  required
+                  value={advancePaymentData.deliveryDate}
+                  onChange={e => setAdvancePaymentData({ ...advancePaymentData, deliveryDate: e.target.value })}
+                  className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-emerald-300 dark:border-emerald-700/50 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-gray-900 dark:text-white text-sm"
                 />
               </div>
               <div className="pt-2 border-t border-gray-100 dark:border-zinc-800">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Advance Amount Received (Rs) *</label>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   required
                   value={advancePaymentData.amount}
-                  onChange={e => setAdvancePaymentData({...advancePaymentData, amount: e.target.value})}
+                  onChange={e => setAdvancePaymentData({ ...advancePaymentData, amount: e.target.value })}
                   className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-emerald-300 dark:border-emerald-700/50 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-gray-900 dark:text-white font-bold"
                   placeholder="e.g. 5000"
                 />
@@ -922,19 +1399,19 @@ const LeadsList = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Payment Date *</label>
-                  <input 
-                    type="date" 
+                  <input
+                    type="date"
                     required
                     value={advancePaymentData.date}
-                    onChange={e => setAdvancePaymentData({...advancePaymentData, date: e.target.value})}
+                    onChange={e => setAdvancePaymentData({ ...advancePaymentData, date: e.target.value })}
                     className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-gray-900 dark:text-white text-sm"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Method *</label>
-                  <select 
+                  <select
                     value={advancePaymentData.method}
-                    onChange={e => setAdvancePaymentData({...advancePaymentData, method: e.target.value})}
+                    onChange={e => setAdvancePaymentData({ ...advancePaymentData, method: e.target.value })}
                     className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-gray-900 dark:text-white text-sm"
                   >
                     <option>Cash</option>
@@ -946,22 +1423,22 @@ const LeadsList = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Transaction Reference (Optional)</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={advancePaymentData.reference}
-                  onChange={e => setAdvancePaymentData({...advancePaymentData, reference: e.target.value})}
+                  onChange={e => setAdvancePaymentData({ ...advancePaymentData, reference: e.target.value })}
                   className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-gray-900 dark:text-white text-sm"
                   placeholder="Txn ID or Cheque No."
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
-                <input 
-                  type="text" 
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes / Comments</label>
+                <input
+                  type="text"
                   value={advancePaymentData.notes}
-                  onChange={e => setAdvancePaymentData({...advancePaymentData, notes: e.target.value})}
+                  onChange={e => setAdvancePaymentData({ ...advancePaymentData, notes: e.target.value })}
                   className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-gray-900 dark:text-white text-sm"
-                  placeholder="Any additional notes..."
+                  placeholder="Any additional notes or comments..."
                 />
               </div>
 
@@ -973,9 +1450,9 @@ const LeadsList = () => {
                       <p className="mb-1 text-xs text-gray-500 dark:text-gray-400"><span className="font-semibold">Click to upload</span> or drag and drop</p>
                       <p className="text-[10px] text-gray-500 dark:text-gray-400">PNG, JPG or WEBP (Max 5MB)</p>
                     </div>
-                    <input 
-                      type="file" 
-                      className="hidden" 
+                    <input
+                      type="file"
+                      className="hidden"
                       multiple
                       accept="image/*"
                       onChange={(e) => {
@@ -991,7 +1468,7 @@ const LeadsList = () => {
                     {paymentProofs.map((file, idx) => (
                       <div key={idx} className="relative w-16 h-16 rounded-md overflow-hidden border border-gray-200 dark:border-zinc-700 group">
                         <img src={URL.createObjectURL(file)} alt="proof" className="w-full h-full object-cover" />
-                        <button 
+                        <button
                           type="button"
                           onClick={() => setPaymentProofs(paymentProofs.filter((_, i) => i !== idx))}
                           className="absolute top-0 right-0 bg-red-500 text-white rounded-bl-md p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -1005,14 +1482,14 @@ const LeadsList = () => {
               </div>
 
               <div className="pt-4 flex justify-end gap-3 border-t border-gray-100 dark:border-zinc-800">
-                <button 
+                <button
                   type="button"
                   onClick={() => setAdvanceModalState(null)}
                   className="px-4 py-2 text-gray-600 dark:text-gray-400 font-medium hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   type="submit"
                   disabled={createBookingMutation.isPending}
                   className="px-4 py-2 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50"

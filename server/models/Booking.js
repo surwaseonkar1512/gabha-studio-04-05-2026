@@ -36,6 +36,12 @@ const bookingSchema = new mongoose.Schema({
     default: 0
   },
   payments: [paymentSchema],
+  deliveryDate: {
+    type: Date,
+  },
+  notes: {
+    type: String,
+  },
   status: {
     type: String,
     enum: ['Active', 'Completed', 'Cancelled'],

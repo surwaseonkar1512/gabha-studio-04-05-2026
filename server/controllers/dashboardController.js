@@ -221,6 +221,24 @@ const getDashboardData = async (req, res) => {
       if (c.bookingsCount > 1) repeatCount++;
     });
 
+    // Calculate upcoming deliveries count
+    const upcomingDeliveriesCount = allBookings.filter(b => 
+      b.status === 'Active' && 
+      b.deliveryDate && 
+      new Date(b.deliveryDate) >= today
+    ).length;
+
+    // Calculate product interest count (leads by product name)
+    const productMap = {};
+    leads.forEach(l => {
+      const p = l.productName || 'General Service';
+      productMap[p] = (productMap[p] || 0) + 1;
+    });
+    const productAnalyticsData = Object.keys(productMap).map(key => ({
+      name: key,
+      value: productMap[key]
+    })).sort((a, b) => b.value - a.value);
+
     // ----------------------------------------------------
     // FINAL RESPONSE BUILDER
     // ----------------------------------------------------
@@ -245,7 +263,8 @@ const getDashboardData = async (req, res) => {
         conversionRate,
         dropRate,
         withoutQuotation: withoutQuotationCount,
-        mostActiveSource
+        mostActiveSource,
+        productAnalytics: productAnalyticsData
       },
       bookingAnalytics: {
         total: totalBookings,
@@ -253,11 +272,12 @@ const getDashboardData = async (req, res) => {
         pending: pendingBookings,
         completed: completedBookings,
         cancelled: cancelledBookings,
-        upcomingDeliveries: 0, // Placeholder
+        upcomingDeliveries: upcomingDeliveriesCount,
         completionRate: bookingCompletionRate,
         highestValue: highestBookingValue,
         averageValue: avgBookingValue
       },
+      productAnalytics: productAnalyticsData,
       paymentAnalytics: {
         totalRevenue,
         totalPending: totalPendingPayment,

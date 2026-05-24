@@ -14,12 +14,44 @@ const quotationSchema = new mongoose.Schema({
   lead: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Lead',
+    required: false
+  },
+  customerName: {
+    type: String,
     required: true
+  },
+  customerPhone: {
+    type: String,
+    required: true
+  },
+  customerEmail: {
+    type: String
+  },
+  customerLocation: {
+    type: String
+  },
+  customerAddress: {
+    type: String
+  },
+  productName: {
+    type: String
+  },
+  notes: {
+    type: String
+  },
+  status: {
+    type: String,
+    enum: ['Draft', 'Sent', 'Approved', 'Rejected'],
+    default: 'Draft'
   },
   items: [quotationItemSchema],
   gstEnabled: {
     type: Boolean,
     default: false
+  },
+  gstPercentage: {
+    type: Number,
+    default: 18
   },
   subTotal: {
     type: Number,

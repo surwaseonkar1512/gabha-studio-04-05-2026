@@ -7,6 +7,8 @@ import Dashboard from './pages/dashboard/Dashboard';
 import LeadsList from './pages/crm/LeadsList';
 import BookingsList from './pages/bookings/BookingsList';
 import ExpensesList from './pages/finance/ExpensesList';
+import QuotationModule from './pages/quotations/QuotationModule';
+import QuotationMasterModule from './pages/quotations/QuotationMasterModule';
 import PublicLayout from './layouts/PublicLayout';
 import Home from './pages/public/Home';
 import About from './pages/public/About';
@@ -32,6 +34,8 @@ function App() {
         <Route path="/admin" element={isAuthenticated ? <DashboardLayout /> : <Navigate to="/login" />}>
           <Route index element={<Dashboard />} />
           <Route path="crm" element={<LeadsList />} />
+          <Route path="quotations" element={<QuotationModule />} />
+          <Route path="quotation-masters" element={<QuotationMasterModule />} />
           <Route path="bookings" element={<BookingsList />} />
           <Route path="expenses" element={<ExpensesList />} />
         </Route>
