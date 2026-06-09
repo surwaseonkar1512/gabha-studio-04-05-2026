@@ -9,13 +9,13 @@ type AuthMode = 'password' | 'otp' | 'forgot';
 
 const Login = () => {
   const [mode, setMode] = useState<AuthMode>('password');
-  
+
   // Form State
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  
+
   // UI State
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -135,14 +135,14 @@ const Login = () => {
       </div>
 
       <div className="w-full max-w-lg p-8 sm:p-12 relative z-10 flex flex-col justify-center min-h-[600px]">
-        
+
         {/* Header */}
         <div className="mb-16 text-center">
           <p className="text-amber-500/80 text-[10px] tracking-[0.4em] uppercase mb-4">The Collection</p>
           <h1 className="text-4xl font-light text-white tracking-widest uppercase leading-snug mb-8">
             Gabha Studio
           </h1>
-          
+
           <div className="flex items-center justify-center mb-6">
             <div className="h-px w-8 bg-zinc-800"></div>
             <h2 className="mx-4 text-xs font-light text-amber-400 tracking-[0.2em] uppercase">
@@ -152,7 +152,7 @@ const Login = () => {
             </h2>
             <div className="h-px w-8 bg-zinc-800"></div>
           </div>
-          
+
           <p className="text-zinc-500 text-[10px] tracking-widest uppercase leading-relaxed">
             {mode === 'password' && 'Enter your credentials to enter the dashboard.'}
             {mode === 'otp' && 'Secure token access.'}
@@ -200,8 +200,8 @@ const Login = () => {
               </div>
 
               <div className="flex justify-center pt-2">
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => switchMode('forgot')}
                   className="text-[9px] text-zinc-500 hover:text-amber-400 uppercase tracking-[0.2em] transition-colors"
                 >
@@ -324,7 +324,7 @@ const Login = () => {
               Authenticate via Token Instead
             </button>
           )}
-          
+
           {mode !== 'password' && (
             <button
               onClick={() => switchMode('password')}

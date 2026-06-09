@@ -1,6 +1,6 @@
 require("dotenv").config();
 const mongoose = require("mongoose");
-const User = require("../models/User");
+const User = require("./models/User");
 
 const seedSuperAdmin = async () => {
   try {
@@ -13,7 +13,7 @@ const seedSuperAdmin = async () => {
       admin.email = process.env.ADMIN_EMAIL || "dashon.team@gmail.com";
       admin.password = "password123";
       await admin.save();
-      console.log("Super Admin updated successfully!", admin.email, admin.password);
+      console.log("Super Admin updated successfully!");
       process.exit();
     } else {
       const superAdmin = new User({

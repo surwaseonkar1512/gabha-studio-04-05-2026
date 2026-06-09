@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, CreditCard, Layers, User, LogOut, Sun, Moon, Bell, Check, CheckCheck, UserPlus, Info, AlertCircle, Calendar, FileText, Copy } from 'lucide-react';
+import { LayoutDashboard, Users, CreditCard, Layers, User, LogOut, Sun, Moon, Bell, Check, CheckCheck, UserPlus, Info, AlertCircle, Calendar, FileText, Copy, Image, Settings, Palette } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../store/authSlice';
 import { useTheme } from '../context/ThemeContext';
@@ -68,8 +68,6 @@ const DashboardLayout = () => {
 
     socket.on('new_lead', (lead) => {
       // Optimistically add notification or refetch
-      // The backend should ideally create the notification first, then emit
-      // For immediate UI update, we can prepend a mock notification and refetch in background
       const newNotif: NotificationItem = {
         _id: Math.random().toString(36).substr(2, 9),
         title: 'New Lead Received!',
@@ -138,14 +136,30 @@ const DashboardLayout = () => {
     navigate('/login');
   };
 
-  const navItems = [
+  const crmItems = [
+    { name: 'Dashboard', path: '/admin', icon: <LayoutDashboard size={18} /> },
+    { name: 'Leads Pipeline', path: '/admin/crm', icon: <Users size={18} /> },
+    { name: 'Quotation Masters', path: '/admin/quotation-masters', icon: <Copy size={18} /> },
+    { name: 'Bookings', path: '/admin/bookings', icon: <Calendar size={18} /> },
+    { name: 'Expenses', path: '/admin/expenses', icon: <CreditCard size={18} /> },
+  ];
+
+  const cmsItems = [
+    { name: 'Banners', path: '/admin/cms/banners', icon: <Layers size={18} /> },
+    { name: 'About Us', path: '/admin/cms/about', icon: <Info size={18} /> },
+    { name: 'Gallery', path: '/admin/cms/gallery', icon: <Image size={18} /> },
+    { name: 'Categories', path: '/admin/cms/categories', icon: <Palette size={18} /> },
+    { name: 'Products', path: '/admin/cms/products', icon: <CreditCard size={18} /> },
+    { name: 'Instagram Gallery', path: '/admin/cms/instagram', icon: <FileText size={18} /> },
+    { name: 'Testimonials', path: '/admin/cms/testimonials', icon: <FileText size={18} /> },
+    { name: 'Site Settings', path: '/admin/cms/settings', icon: <Settings size={18} /> },
+  ];
+
+  const mobileNavItems = [
     { name: 'Dashboard', path: '/admin', icon: <LayoutDashboard size={20} /> },
-    { name: 'CRM', path: '/admin/crm', icon: <Users size={20} /> },
-    // { name: 'Create Quotation', path: '/admin/quotations', icon: <FileText size={20} /> },
-    { name: 'Quotation Masters', path: '/admin/quotation-masters', icon: <Copy size={20} /> },
+    { name: 'Leads', path: '/admin/crm', icon: <Users size={20} /> },
     { name: 'Bookings', path: '/admin/bookings', icon: <Calendar size={20} /> },
-    { name: 'Expenses', path: '/admin/expenses', icon: <CreditCard size={20} /> },
-    { name: 'CMS', path: '/admin/cms', icon: <Layers size={20} /> },
+    { name: 'CMS Settings', path: '/admin/cms', icon: <Layers size={20} /> },
   ];
 
   const getNotificationIcon = (type: string) => {
@@ -162,42 +176,70 @@ const DashboardLayout = () => {
       <Toaster />
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex w-64 flex-col bg-zinc-900 dark:bg-zinc-900/50 dark:border-r dark:border-zinc-800 text-white fixed h-full shadow-2xl z-10">
-        <div className="h-16 flex items-center px-6 border-b border-zinc-800">
+        <div className="h-16 flex items-center px-6 border-b border-zinc-800 shrink-0">
           <h1 className="text-xl font-bold bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text text-transparent">
             Gabha Studio
           </h1>
         </div>
 
-        <nav className="flex-1 py-6 px-3 space-y-1">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.name}
-              to={item.path}
-              end={item.path === '/admin'}
-              className={({ isActive }) =>
-                `flex items-center px-3 py-2.5 rounded-lg transition-colors group ${isActive
-                  ? 'bg-amber-600/10 text-amber-500'
-                  : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
-                }`
-              }
-            >
-              <span className="mr-3">{item.icon}</span>
-              <span className="font-medium">{item.name}</span>
-            </NavLink>
-          ))}
+        <nav className="flex-1 py-6 px-3 space-y-6 overflow-y-auto custom-scrollbar">
+          {/* CRM Section */}
+          <div>
+            <p className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500">CRM System</p>
+            <div className="space-y-1">
+              {crmItems.map((item) => (
+                <NavLink
+                  key={item.name}
+                  to={item.path}
+                  end={item.path === '/admin'}
+                  className={({ isActive }) =>
+                    `flex items-center px-3 py-2 rounded-lg transition-colors group ${isActive
+                      ? 'bg-amber-600/10 text-amber-500'
+                      : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                    }`
+                  }
+                >
+                  <span className="mr-3">{item.icon}</span>
+                  <span className="font-medium text-sm">{item.name}</span>
+                </NavLink>
+              ))}
+            </div>
+          </div>
+
+          {/* CMS Section */}
+          <div>
+            <p className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500">CMS System</p>
+            <div className="space-y-1">
+              {cmsItems.map((item) => (
+                <NavLink
+                  key={item.name}
+                  to={item.path}
+                  className={({ isActive }) =>
+                    `flex items-center px-3 py-2 rounded-lg transition-colors group ${isActive
+                      ? 'bg-amber-600/10 text-amber-500'
+                      : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                    }`
+                  }
+                >
+                  <span className="mr-3">{item.icon}</span>
+                  <span className="font-medium text-sm">{item.name}</span>
+                </NavLink>
+              ))}
+            </div>
+          </div>
         </nav>
 
-        <div className="p-4 border-t border-zinc-800 space-y-1">
-          <button className="flex w-full items-center px-3 py-2.5 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors">
-            <User size={20} className="mr-3" />
-            <span className="font-medium">Profile</span>
+        <div className="p-4 border-t border-zinc-800 space-y-1 shrink-0">
+          <button className="flex w-full items-center px-3 py-2 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors">
+            <User size={18} className="mr-3" />
+            <span className="font-medium text-sm">Profile</span>
           </button>
           <button
             onClick={() => setLogoutConfirmState(true)}
-            className="flex w-full items-center px-3 py-2.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
+            className="flex w-full items-center px-3 py-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
           >
-            <LogOut size={20} className="mr-3" />
-            <span className="font-medium">Logout</span>
+            <LogOut size={18} className="mr-3" />
+            <span className="font-medium text-sm">Logout</span>
           </button>
         </div>
       </aside>
@@ -305,7 +347,7 @@ const DashboardLayout = () => {
 
       {/* Mobile Bottom Navigation */}
       <nav className="md:hidden fixed bottom-0 w-full bg-white dark:bg-zinc-900 border-t border-gray-200 dark:border-zinc-800 flex justify-around items-center h-16 z-50 px-2 pb-safe transition-colors duration-200">
-        {navItems.map((item) => (
+        {mobileNavItems.map((item) => (
           <NavLink
             key={item.name}
             to={item.path}

@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Send, MapPin, Phone, Mail, Navigation } from 'lucide-react';
 import api from '../../api/axiosInstance';
 
 const Contact = () => {
+  const [settings, setSettings] = useState<any>(null);
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -19,6 +20,18 @@ const Contact = () => {
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsSuccess, setGpsSuccess] = useState(false);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const { data } = await api.get('/cms/settings');
+        setSettings(data);
+      } catch (error) {
+        console.error('Failed to load contact settings', error);
+      }
+    };
+    fetchSettings();
+  }, []);
 
   const handleGPSCapture = () => {
     if (!navigator.geolocation) {
@@ -137,25 +150,33 @@ const Contact = () => {
                 </div>
                 <div className="ml-4">
                   <h3 className="text-lg font-bold uppercase tracking-wider text-black">Visit Studio</h3>
-                  <p className="text-gray-600 mt-1">123 Artisan District<br/>New York, NY 10012</p>
+                  <p className="text-gray-600 mt-1 whitespace-pre-wrap">
+                    {settings?.companyAddress || '123 Artisan District\nNew York, NY 10012'}
+                  </p>
                 </div>
               </div>
+              
               <div className="flex items-start">
                 <div className="flex-shrink-0 mt-1">
                   <Phone className="h-6 w-6 text-[#D4AF37]" />
                 </div>
                 <div className="ml-4">
                   <h3 className="text-lg font-bold uppercase tracking-wider text-black">Call Us</h3>
-                  <p className="text-gray-600 mt-1">+1 (555) 123-4567</p>
+                  <p className="text-gray-600 mt-1">
+                    {settings?.phoneNumber || '+1 (555) 123-4567'}
+                  </p>
                 </div>
               </div>
+
               <div className="flex items-start">
                 <div className="flex-shrink-0 mt-1">
                   <Mail className="h-6 w-6 text-black" />
                 </div>
                 <div className="ml-4">
                   <h3 className="text-lg font-bold uppercase tracking-wider text-black">Email Us</h3>
-                  <p className="text-gray-600 mt-1">info@gabhastudio.com</p>
+                  <p className="text-gray-600 mt-1">
+                    {settings?.emailAddress || 'info@gabhastudio.com'}
+                  </p>
                 </div>
               </div>
             </div>

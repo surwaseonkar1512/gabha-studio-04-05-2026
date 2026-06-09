@@ -1,16 +1,54 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { Palette, Menu, X } from 'lucide-react';
+import api from '../api/axiosInstance';
 
 const PublicLayout = () => {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const location = useLocation();
+  const [settings, setSettings] = useState<any>(null);
 
   const navLinks = [
     { name: 'Home', path: '/' },
     { name: 'About', path: '/about' },
     { name: 'Contact', path: '/contact' },
   ];
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const { data } = await api.get('/cms/settings');
+        setSettings(data);
+      } catch (error) {
+        console.error('Failed to load settings', error);
+      }
+    };
+    fetchSettings();
+  }, []);
+
+  useEffect(() => {
+    if (settings) {
+      if (settings.metaTitle) {
+        document.title = settings.metaTitle;
+      }
+      if (settings.favicon) {
+        const link = (document.querySelector("link[rel~='icon']") as HTMLLinkElement) || document.createElement('link');
+        link.type = 'image/x-icon';
+        link.rel = 'shortcut icon';
+        link.href = settings.favicon;
+        document.getElementsByTagName('head')[0].appendChild(link);
+      }
+      if (settings.metaDescription) {
+        let meta = document.querySelector("meta[name='description']") as HTMLMetaElement;
+        if (!meta) {
+          meta = document.createElement('meta');
+          meta.name = 'description';
+          document.getElementsByTagName('head')[0].appendChild(meta);
+        }
+        meta.content = settings.metaDescription;
+      }
+    }
+  }, [settings]);
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -22,8 +60,14 @@ const PublicLayout = () => {
           <div className="flex justify-between items-center h-20">
             {/* Logo */}
             <Link to="/" className="flex items-center gap-2">
-              <Palette className="h-8 w-8 text-[#D4AF37]" /> {/* Golden color */}
-              <span className="text-2xl font-bold tracking-widest uppercase">Gabha Studio</span>
+              {settings?.navbarLogo ? (
+                <img src={settings.navbarLogo} alt={settings.websiteName || "Gabha Studio"} className="h-12 w-auto object-contain" />
+              ) : (
+                <>
+                  <Palette className="h-8 w-8 text-[#D4AF37]" />
+                  <span className="text-2xl font-bold tracking-widest uppercase">{settings?.websiteName || 'Gabha Studio'}</span>
+                </>
+              )}
             </Link>
 
             {/* Desktop Nav */}
@@ -95,11 +139,17 @@ const PublicLayout = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <Palette className="h-6 w-6 text-[#D4AF37]" />
-              <span className="text-xl font-bold tracking-widest uppercase">Gabha Studio</span>
+              {settings?.footerLogo ? (
+                <img src={settings.footerLogo} alt={settings.websiteName || "Gabha Studio"} className="h-10 w-auto object-contain" />
+              ) : (
+                <>
+                  <Palette className="h-6 w-6 text-[#D4AF37]" />
+                  <span className="text-xl font-bold tracking-widest uppercase">{settings?.websiteName || 'Gabha Studio'}</span>
+                </>
+              )}
             </div>
             <p className="text-gray-400 text-sm leading-relaxed">
-              Crafting timeless statues and sculptures that capture the essence of pure art. Elevate your space with our masterpieces.
+              {settings?.footerText || 'Crafting timeless statues and sculptures that capture the essence of pure art. Elevate your space with our masterpieces.'}
             </p>
           </div>
           <div>
@@ -117,14 +167,14 @@ const PublicLayout = () => {
           <div>
             <h3 className="text-lg font-bold uppercase tracking-widest mb-4 text-[#D4AF37]">Contact</h3>
             <ul className="space-y-2 text-sm text-gray-400">
-              <li>info@gabhastudio.com</li>
-              <li>+1 (555) 123-4567</li>
-              <li>Artisan District, New York, NY</li>
+              <li>{settings?.emailAddress || 'info@gabhastudio.com'}</li>
+              <li>{settings?.phoneNumber || '+1 (555) 123-4567'}</li>
+              <li>{settings?.companyAddress || 'Artisan District, New York, NY'}</li>
             </ul>
           </div>
         </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12 pt-8 border-t border-zinc-800 text-center text-gray-500 text-xs tracking-wider">
-          &copy; {new Date().getFullYear()} Gabha Studio. All rights reserved.
+          {settings?.copyrightText || `© ${new Date().getFullYear()} ${settings?.websiteName || 'Gabha Studio'}. All rights reserved.`}
         </div>
       </footer>
     </div>
