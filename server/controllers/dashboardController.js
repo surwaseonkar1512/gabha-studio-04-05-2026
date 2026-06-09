@@ -1,6 +1,7 @@
 const Booking = require('../models/Booking');
 const Lead = require('../models/Lead');
 const Expense = require('../models/Expense');
+const Product = require('../models/Product');
 
 // @desc    Get dashboard analytics
 // @route   GET /api/dashboard
@@ -239,6 +240,13 @@ const getDashboardData = async (req, res) => {
       value: productMap[key]
     })).sort((a, b) => b.value - a.value);
 
+    // Calculate low stock products count
+    const lowStockCount = await Product.countDocuments({
+      $expr: {
+        $lte: ['$inventory.availableStock', '$inventory.lowStockThreshold']
+      }
+    });
+
     // ----------------------------------------------------
     // FINAL RESPONSE BUILDER
     // ----------------------------------------------------
@@ -248,7 +256,8 @@ const getDashboardData = async (req, res) => {
         totalExpenses,
         netProfit,
         conversionRate,
-        activeBookings: pendingBookings
+        activeBookings: pendingBookings,
+        lowStockCount
       },
       leadAnalytics: {
         totalNewLeads,

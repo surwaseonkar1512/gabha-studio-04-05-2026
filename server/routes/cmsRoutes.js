@@ -34,7 +34,18 @@ const {
   updateTestimonial,
   deleteTestimonial,
   getSiteSettings,
-  updateSiteSettings
+  updateSiteSettings,
+  // New Product Management/eCommerce controllers
+  duplicateProduct,
+  bulkProductAction,
+  getStorefrontProducts,
+  logProductActivity,
+  getProductAnalytics,
+  getReviews,
+  updateReviewStatus,
+  deleteReview,
+  getProductReviews,
+  createProductReview
 } = require('../controllers/cmsController');
 
 const { protect, checkPermission } = require('../middleware/authMiddleware');
@@ -51,6 +62,12 @@ router.get('/products', getProducts);
 router.get('/instagram', getInstagramItems);
 router.get('/testimonials', getTestimonials);
 router.get('/settings', getSiteSettings);
+
+// Storefront & Reviews public access
+router.get('/products/storefront', getStorefrontProducts);
+router.get('/products/:id/reviews', getProductReviews);
+router.post('/products/:id/reviews', createProductReview);
+router.post('/products/:id/log-activity', logProductActivity);
 
 // --- PROTECTED WRITE ENDPOINTS ---
 router.use(protect);
@@ -81,10 +98,18 @@ router.put('/categories/:id', checkPermission('cms', 'edit'), updateCategory);
 router.delete('/categories/:id', checkPermission('cms', 'delete'), deleteCategory);
 
 // Products
+router.get('/products/analytics', checkPermission('cms', 'view'), getProductAnalytics);
 router.post('/products', checkPermission('cms', 'add'), createProduct);
 router.put('/products/reorder', checkPermission('cms', 'edit'), reorderProducts);
+router.put('/products/bulk', checkPermission('cms', 'edit'), bulkProductAction);
+router.post('/products/:id/duplicate', checkPermission('cms', 'add'), duplicateProduct);
 router.put('/products/:id', checkPermission('cms', 'edit'), updateProduct);
 router.delete('/products/:id', checkPermission('cms', 'delete'), deleteProduct);
+
+// Reviews management
+router.get('/reviews', checkPermission('cms', 'view'), getReviews);
+router.put('/reviews/:id/status', checkPermission('cms', 'edit'), updateReviewStatus);
+router.delete('/reviews/:id', checkPermission('cms', 'delete'), deleteReview);
 
 // Instagram feed
 router.post('/instagram', checkPermission('cms', 'add'), createInstagramItem);

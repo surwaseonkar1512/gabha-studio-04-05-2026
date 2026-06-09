@@ -3,6 +3,8 @@ const AboutUs = require('../models/AboutUs');
 const Gallery = require('../models/Gallery');
 const Category = require('../models/Category');
 const Product = require('../models/Product');
+const Review = require('../models/Review');
+const ProductAnalytics = require('../models/ProductAnalytics');
 const InstagramGallery = require('../models/InstagramGallery');
 const Testimonial = require('../models/Testimonial');
 const SiteSettings = require('../models/SiteSettings');
@@ -202,7 +204,9 @@ const reorderGalleries = async (req, res) => {
 // --- CATEGORY CONTROLLERS ---
 const getCategories = async (req, res) => {
   try {
-    const categories = await Category.find().sort({ displayOrder: 1 });
+    const categories = await Category.find()
+      .populate('parentCategory', 'title slug')
+      .sort({ displayOrder: 1 });
     res.status(200).json(categories);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -275,14 +279,19 @@ const reorderCategories = async (req, res) => {
 // --- PRODUCT CONTROLLERS ---
 const getProducts = async (req, res) => {
   try {
-    const { category, isActive, showOnHomepage, search } = req.query;
+    const { category, isActive, status, showOnHomepage, search } = req.query;
     
     let query = {};
     if (category) query.category = category;
     if (isActive !== undefined) query.isActive = isActive === 'true';
+    if (status) query.status = status;
     if (showOnHomepage !== undefined) query.showOnHomepage = showOnHomepage === 'true';
     if (search) {
-      query.name = { $regex: search, $options: 'i' };
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { sku: { $regex: search, $options: 'i' } },
+        { brand: { $regex: search, $options: 'i' } }
+      ];
     }
 
     const products = await Product.find(query)
@@ -297,7 +306,21 @@ const getProducts = async (req, res) => {
 
 const createProduct = async (req, res) => {
   try {
-    const product = await Product.create(req.body);
+    const body = { ...req.body };
+    if (body.pricing) {
+      const sp = Number(body.pricing.sellingPrice);
+      const mrp = Number(body.pricing.mrp);
+      if (mrp > 0 && sp > 0) {
+        body.pricing.discountAmount = mrp - sp;
+        body.pricing.discountPercentage = Math.round(((mrp - sp) / mrp) * 100);
+      }
+      body.price = sp;
+    }
+    if (body.images && body.images.featuredImage) {
+      body.productImage = body.images.featuredImage.secure_url;
+    }
+
+    const product = await Product.create(body);
     const populated = await product.populate('category', 'title slug');
     res.status(201).json(populated);
   } catch (error) {
@@ -307,7 +330,21 @@ const createProduct = async (req, res) => {
 
 const updateProduct = async (req, res) => {
   try {
-    const product = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true })
+    const body = { ...req.body };
+    if (body.pricing) {
+      const sp = Number(body.pricing.sellingPrice);
+      const mrp = Number(body.pricing.mrp);
+      if (mrp > 0 && sp > 0) {
+        body.pricing.discountAmount = mrp - sp;
+        body.pricing.discountPercentage = Math.round(((mrp - sp) / mrp) * 100);
+      }
+      body.price = sp;
+    }
+    if (body.images && body.images.featuredImage) {
+      body.productImage = body.images.featuredImage.secure_url;
+    }
+
+    const product = await Product.findByIdAndUpdate(req.params.id, body, { new: true })
       .populate('category', 'title slug');
     if (!product) return res.status(404).json({ message: 'Product not found' });
     res.status(200).json(product);
@@ -491,6 +528,278 @@ const updateSiteSettings = async (req, res) => {
   }
 };
 
+// --- PRODUCT EXTRA CONTROLLERS (Duplicate, Bulk, Storefront, Logs, Analytics) ---
+const duplicateProduct = async (req, res) => {
+  try {
+    const original = await Product.findById(req.params.id);
+    if (!original) return res.status(404).json({ message: 'Original product not found' });
+
+    const duplicateData = original.toObject();
+    delete duplicateData._id;
+    delete duplicateData.createdAt;
+    delete duplicateData.updatedAt;
+
+    duplicateData.name = `${original.name} (Copy)`;
+    duplicateData.slug = `${original.slug}-copy-${Date.now()}`;
+    duplicateData.sku = `${original.sku}-copy-${Date.now()}`;
+    duplicateData.status = 'Draft';
+
+    const count = await Product.countDocuments();
+    duplicateData.displayOrder = count;
+
+    const copy = await Product.create(duplicateData);
+    const populated = await copy.populate('category', 'title slug');
+    res.status(201).json(populated);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const bulkProductAction = async (req, res) => {
+  try {
+    const { ids, action, value } = req.body;
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ message: 'Product IDs are required' });
+    }
+
+    if (action === 'delete') {
+      await Product.deleteMany({ _id: { $in: ids } });
+      return res.status(200).json({ message: 'Products deleted successfully' });
+    }
+
+    let update = {};
+    if (action === 'publish') {
+      update = { status: 'Published', isActive: true };
+    } else if (action === 'archive') {
+      update = { status: 'Archived', isActive: false };
+    } else if (action === 'updateTags') {
+      update = { tags: value };
+    } else {
+      return res.status(400).json({ message: 'Invalid bulk action' });
+    }
+
+    await Product.updateMany({ _id: { $in: ids } }, { $set: update });
+    res.status(200).json({ message: 'Bulk update completed successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const getStorefrontProducts = async (req, res) => {
+  try {
+    const { categorySlug, minPrice, maxPrice, brand, color, size, rating, availability, search, tags } = req.query;
+
+    let query = { status: 'Published' };
+
+    if (categorySlug) {
+      const category = await Category.findOne({ slug: categorySlug });
+      if (category) query.category = category._id;
+    }
+
+    if (minPrice || maxPrice) {
+      query.price = {};
+      if (minPrice) query.price.$gte = Number(minPrice);
+      if (maxPrice) query.price.$lte = Number(maxPrice);
+    }
+
+    if (brand) {
+      query.brand = { $regex: brand, $options: 'i' };
+    }
+
+    if (color) {
+      query.$or = [
+        { 'specifications.color': { $regex: color, $options: 'i' } },
+        { 'variants.combinations.combination.Color': { $regex: color, $options: 'i' } }
+      ];
+    }
+
+    if (size) {
+      query['variants.combinations.combination.Size'] = size;
+    }
+
+    if (availability === 'inStock') {
+      query['inventory.availableStock'] = { $gt: 0 };
+    }
+
+    if (tags) {
+      const tagList = tags.split(',');
+      query.tags = { $in: tagList };
+    }
+
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { shortDescription: { $regex: search, $options: 'i' } },
+        { tags: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    let products = await Product.find(query)
+      .populate('category', 'title slug')
+      .sort({ displayOrder: 1 });
+
+    // Filter by rating in memory if rating filter exists (since ratings are in Reviews model)
+    if (rating) {
+      const targetRating = Number(rating);
+      const filtered = [];
+      for (const p of products) {
+        const reviews = await Review.find({ product: p._id, status: 'Approved' });
+        const avg = reviews.length > 0
+          ? reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length
+          : 0;
+        if (avg >= targetRating) {
+          filtered.push(p);
+        }
+      }
+      products = filtered;
+    }
+
+    res.status(200).json(products);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const logProductActivity = async (req, res) => {
+  try {
+    const { type } = req.body;
+    const { id } = req.params;
+    if (!['View', 'Click', 'AddToCart', 'Wishlist', 'Order'].includes(type)) {
+      return res.status(400).json({ message: 'Invalid activity type' });
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Save detailed daily analytics log
+    await ProductAnalytics.create({
+      product: id,
+      type,
+      date: today
+    });
+
+    // Update root level analytics summary counts on product for fast lookup
+    const updateField = {};
+    if (type === 'View') updateField['analytics.viewsCount'] = 1;
+    if (type === 'Click') updateField['analytics.clicksCount'] = 1;
+    if (type === 'AddToCart') updateField['analytics.addToCartCount'] = 1;
+    if (type === 'Wishlist') updateField['analytics.wishlistCount'] = 1;
+    if (type === 'Order') updateField['analytics.ordersCount'] = 1;
+
+    await Product.findByIdAndUpdate(id, { $inc: updateField });
+
+    res.status(200).json({ message: 'Activity logged successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const getProductAnalytics = async (req, res) => {
+  try {
+    // Top Views Products
+    const topViewed = await Product.find()
+      .sort({ 'analytics.viewsCount': -1 })
+      .limit(5)
+      .select('name price productImage analytics');
+
+    // Top Orders Products (Best Sellers)
+    const bestSellers = await Product.find()
+      .sort({ 'analytics.ordersCount': -1 })
+      .limit(5)
+      .select('name price productImage analytics');
+
+    // Low Stock Products
+    const lowStock = await Product.find({
+      $expr: {
+        $lte: ['$inventory.availableStock', '$inventory.lowStockThreshold']
+      }
+    })
+      .limit(10)
+      .select('name sku inventory productImage');
+
+    res.status(200).json({
+      topViewed,
+      bestSellers,
+      lowStock
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// --- REVIEW CONTROLLERS ---
+const getReviews = async (req, res) => {
+  try {
+    const { status, product } = req.query;
+    const filter = {};
+    if (status) filter.status = status;
+    if (product) filter.product = product;
+
+    const reviews = await Review.find(filter)
+      .populate('product', 'name productImage')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json(reviews);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const updateReviewStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+    if (!['Pending', 'Approved', 'Rejected'].includes(status)) {
+      return res.status(400).json({ message: 'Invalid status' });
+    }
+
+    const review = await Review.findByIdAndUpdate(req.params.id, { status }, { new: true })
+      .populate('product', 'name productImage');
+    if (!review) return res.status(404).json({ message: 'Review not found' });
+
+    res.status(200).json(review);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const deleteReview = async (req, res) => {
+  try {
+    const review = await Review.findById(req.params.id);
+    if (!review) return res.status(404).json({ message: 'Review not found' });
+    await review.deleteOne();
+    res.status(200).json({ message: 'Review deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const getProductReviews = async (req, res) => {
+  try {
+    const reviews = await Review.find({ product: req.params.id, status: 'Approved' })
+      .sort({ createdAt: -1 });
+    res.status(200).json(reviews);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const createProductReview = async (req, res) => {
+  try {
+    const { rating, reviewText, customerName, images } = req.body;
+    const review = await Review.create({
+      product: req.params.id,
+      rating: Number(rating),
+      reviewText,
+      customerName,
+      images: images || [],
+      status: 'Pending' // Requires admin approval
+    });
+    res.status(201).json(review);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
 module.exports = {
   uploadSingle,
   uploadMultiple,
@@ -526,5 +835,15 @@ module.exports = {
   updateTestimonial,
   deleteTestimonial,
   getSiteSettings,
-  updateSiteSettings
+  updateSiteSettings,
+  duplicateProduct,
+  bulkProductAction,
+  getStorefrontProducts,
+  logProductActivity,
+  getProductAnalytics,
+  getReviews,
+  updateReviewStatus,
+  deleteReview,
+  getProductReviews,
+  createProductReview
 };
