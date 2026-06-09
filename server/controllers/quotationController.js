@@ -1,7 +1,9 @@
 const Quotation = require('../models/Quotation');
 const Lead = require('../models/Lead');
-const PDFDocument = require('pdfkit');
-
+const SiteSettings = require('../models/SiteSettings');
+const cloudinary = require('../config/cloudinary');
+const puppeteer = require('puppeteer');
+const { generatePDFHTML } = require('../utils/pdfTemplate');
 // @desc    Create a new quotation
 // @route   POST /api/quotations
 // @access  Private
@@ -166,42 +168,6 @@ const deleteQuotation = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DESIGN CONSTANTS
-// ─────────────────────────────────────────────────────────────────────────────
-const COLOR = {
-  black: '#1A1A1A',
-  darkGray: '#2D2D2D',
-  midGray: '#6B6B6B',
-  lightGray: '#F5F5F5',
-  divider: '#E0E0E0',
-  gold: '#C9A84C',
-  white: '#FFFFFF',
-  ccGray: '#CCCCCC',
-};
-
-const PAGE_W = 595.28;
-const PAGE_H = 841.89;
-const MARGIN = 50;
-
-function hexToRgb(hex) {
-  const n = parseInt(hex.replace('#', ''), 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-}
-
-function fillRect(doc, hex, x, y, w, h) {
-  const [r, g, b] = hexToRgb(hex);
-  doc.save().rect(x, y, w, h).fill(`rgb(${r},${g},${b})`).restore();
-}
-
-function hRule(doc, y, x1 = MARGIN, x2 = PAGE_W - MARGIN, color = COLOR.divider, thickness = 0.5) {
-  doc.save().moveTo(x1, y).lineTo(x2, y).lineWidth(thickness).strokeColor(color).stroke().restore();
-}
-
-function fmt(n) {
-  return Number(n).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // @desc    Generate PDF for quotation
 // @route   GET /api/quotations/:id/pdf
 // @access  Private
@@ -211,12 +177,8 @@ const generateQuotationPDF = async (req, res) => {
     const quotation = await Quotation.findById(req.params.id).populate('lead');
     if (!quotation) return res.status(404).json({ message: 'Quotation not found' });
 
-    const doc = new PDFDocument({ size: 'A4', margin: 0, compress: true });
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename=quotation-${quotation.quotationNumber}.pdf`);
-    doc.pipe(res);
+    const settings = await SiteSettings.findOne() || {};
 
-    // Resolve customer info (always from lead)
     const lead = quotation.lead;
     const name = quotation.customerName || lead?.name || 'Valued Customer';
     const phone = quotation.customerPhone || lead?.phone || '-';
@@ -232,203 +194,64 @@ const generateQuotationPDF = async (req, res) => {
       day: '2-digit', month: 'long', year: 'numeric'
     });
 
-    // ── 1. GOLD TOP BAR ───────────────────────────────────────────
-    fillRect(doc, COLOR.gold, 0, 0, PAGE_W, 40);
-
-    // ── 2. DARK HEADER BAND ───────────────────────────────────────
-    fillRect(doc, COLOR.black, 0, 40, PAGE_W, 95);
-
-    doc.font('Helvetica-Bold').fontSize(22).fillColor(COLOR.white)
-      .text('GABHA STUDIO', MARGIN, 58, { lineBreak: false });
-
-    doc.font('Helvetica-Oblique').fontSize(9).fillColor(COLOR.gold)
-      .text('Art Gallery & Photography Services', MARGIN, 86, { lineBreak: false });
-
-    doc.font('Helvetica').fontSize(8).fillColor(COLOR.ccGray)
-      .text('123 Creative Avenue, Mumbai, India', 0, 64,
-        { align: 'right', width: PAGE_W - MARGIN, lineBreak: false });
-    doc.text('+91 9876543210  |  hello@gabhastudio.com', 0, 78,
-      { align: 'right', width: PAGE_W - MARGIN, lineBreak: false });
-
-    // ── 3. QUOTATION TITLE + META ─────────────────────────────────
-    let y = 155;
-
-    doc.font('Helvetica-Bold').fontSize(18).fillColor(COLOR.black)
-      .text('QUOTATION', MARGIN, y, { lineBreak: false });
-
-    const metaX = PAGE_W - MARGIN - 180;
-    const metaRows = [
-      ['Quotation No:', quotation.quotationNumber],
-      ['Date:', dateStr],
-      ['Valid Until:', validStr],
-    ];
-    let metaY = y;
-    metaRows.forEach(([label, value]) => {
-      doc.font('Helvetica-Bold').fontSize(8).fillColor(COLOR.midGray)
-        .text(label, metaX, metaY, { lineBreak: false, width: 72 });
-      doc.font('Helvetica-Bold').fontSize(9).fillColor(COLOR.darkGray)
-        .text(value, metaX + 74, metaY, { lineBreak: false });
-      metaY += 16;
-    });
-
-    y += 55;
-    hRule(doc, y);
-    y += 12;
-
-    // ── 4. BILL TO / PREPARED BY ──────────────────────────────────
-    const colMid = PAGE_W / 2;
-    const billTopY = y;
-
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(COLOR.gold)
-      .text('BILL TO', MARGIN, y, { lineBreak: false });
-    y += 14;
-
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(COLOR.darkGray)
-      .text(name, MARGIN, y, { lineBreak: false });
-    y += 13;
-    doc.font('Helvetica').fontSize(9).fillColor(COLOR.darkGray)
-      .text(phone, MARGIN, y, { lineBreak: false });
-    y += 13;
-    if (email) {
-      doc.text(email, MARGIN, y, { lineBreak: false });
-      y += 13;
-    }
-    if (location) {
-      doc.text(location, MARGIN, y, { lineBreak: false });
-      y += 13;
-    }
-
-    // Prepared By – right column aligned to same top
-    let prepY = billTopY;
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(COLOR.gold)
-      .text('PREPARED BY', colMid, prepY, { lineBreak: false });
-    prepY += 14;
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(COLOR.darkGray)
-      .text('Gabha Studio', colMid, prepY, { lineBreak: false });
-    prepY += 13;
-    doc.font('Helvetica').fontSize(9).fillColor(COLOR.darkGray)
-      .text('hello@gabhastudio.com', colMid, prepY, { lineBreak: false });
-    prepY += 13;
-    doc.text('+91 9876543210', colMid, prepY, { lineBreak: false });
-
-    y += 10;
-    hRule(doc, y);
-    y += 12;
-
-    // ── 5. LINE ITEMS TABLE ───────────────────────────────────────
-    // Only 3 columns: # | Description | Amount (INR)
-    const COL = {
-      no: { x: MARGIN, w: 30 },
-      desc: { x: MARGIN + 30, w: 360 },
-      amt: { x: MARGIN + 390, w: 105 },
+    const data = {
+      type: 'QUOTATION',
+      documentNo: quotation.quotationNumber,
+      date: dateStr,
+      validUntil: validStr,
+      preparedBy: 'Gabha Studio',
+      customer: {
+        name,
+        phone,
+        email,
+        location,
+      },
+      items: quotation.items.map(i => ({
+        description: i.description,
+        qty: 1,
+        rate: i.amount,
+        amount: i.amount
+      })),
+      subTotal: quotation.subTotal,
+      gstEnabled: quotation.gstEnabled,
+      gstPercentage: quotation.gstPercentage,
+      gstAmount: quotation.gstAmount,
+      total: quotation.total,
+      notes: quotation.notes ? [quotation.notes] : [
+        'Includes all approved materials and fabrication costs.',
+        'Delivery timeline starts after advance payment.',
+        'Any additional changes in scope will be charged separately.'
+      ],
+      terms: [
+        '50% advance payment required to initiate the work.',
+        'Remaining payment before final handover.',
+        'Design revisions after approval will be chargeable.',
+        'Quotation valid for 30 days from the date of issue.'
+      ],
+      websiteName: settings.websiteName,
+      logoUrl: settings.websiteLogo,
+      signatureUrl: settings.ownerSignature,
+      stampUrl: settings.companyStamp,
     };
-    const TABLE_RIGHT = COL.amt.x + COL.amt.w; // ≈ 545
 
-    // Header
-    const HEADER_H = 26;
-    fillRect(doc, COLOR.black, MARGIN, y, TABLE_RIGHT - MARGIN, HEADER_H);
+    const htmlContent = generatePDFHTML(data);
 
-    const hTextY = y + 8;
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(COLOR.white);
-    doc.text('#', COL.no.x, hTextY, { width: COL.no.w, align: 'center', lineBreak: false });
-    doc.text('Description', COL.desc.x, hTextY, { width: COL.desc.w, align: 'left', lineBreak: false });
-    doc.text('Amount (INR)', COL.amt.x, hTextY, { width: COL.amt.w, align: 'right', lineBreak: false });
-    y += HEADER_H;
-
-    // Data rows
-    const ROW_H = 26;
-    quotation.items.forEach((item, idx) => {
-      const bg = idx % 2 === 0 ? COLOR.white : COLOR.lightGray;
-      fillRect(doc, bg, MARGIN, y, TABLE_RIGHT - MARGIN, ROW_H);
-
-      const textY = y + 8;
-      doc.font('Helvetica').fontSize(9).fillColor(COLOR.darkGray);
-      doc.text(String(idx + 1), COL.no.x, textY, { width: COL.no.w, align: 'center', lineBreak: false });
-      doc.text(item.description || '—', COL.desc.x, textY, { width: COL.desc.w, align: 'left', lineBreak: false });
-      doc.text(`Rs. ${fmt(item.amount)}`, COL.amt.x, textY, { width: COL.amt.w, align: 'right', lineBreak: false });
-      y += ROW_H;
+    const browser = await puppeteer.launch({
+      headless: 'new',
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
+    const page = await browser.newPage();
+    await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: { top: '0', right: '0', bottom: '0', left: '0' }
+    });
+    await browser.close();
 
-    hRule(doc, y, MARGIN, TABLE_RIGHT);
-    y += 10;
-
-    // ── 6. TOTALS ─────────────────────────────────────────────────
-    const TOT_LABEL_X = COL.desc.x + COL.desc.w - 60; // starts in desc column
-    const TOT_VAL_X = COL.amt.x;
-    const TOT_W_LABEL = 70;
-    const TOT_W_VAL = COL.amt.w;
-
-    // Subtotal (only show if GST is enabled — otherwise grand total = subtotal)
-    if (quotation.gstEnabled) {
-      doc.font('Helvetica').fontSize(9).fillColor(COLOR.darkGray)
-        .text('Subtotal', TOT_LABEL_X, y, { width: TOT_W_LABEL, align: 'right', lineBreak: false });
-      doc.text(`Rs. ${fmt(quotation.subTotal)}`, TOT_VAL_X, y,
-        { width: TOT_W_VAL, align: 'right', lineBreak: false });
-      y += 18;
-
-      const pct = quotation.gstPercentage || 18;
-      doc.text(`GST (${pct}%)`, TOT_LABEL_X, y, { width: TOT_W_LABEL, align: 'right', lineBreak: false });
-      doc.text(`Rs. ${fmt(quotation.gstAmount)}`, TOT_VAL_X, y,
-        { width: TOT_W_VAL, align: 'right', lineBreak: false });
-      y += 18;
-    }
-
-    // Grand Total – gold band
-    const GT_H = 28;
-    fillRect(doc, COLOR.gold, TOT_LABEL_X - 12, y, TABLE_RIGHT - TOT_LABEL_X + 12, GT_H);
-    doc.font('Helvetica-Bold').fontSize(10).fillColor(COLOR.white)
-      .text('Grand Total', TOT_LABEL_X, y + 8, { width: TOT_W_LABEL, align: 'right', lineBreak: false });
-    doc.text(`Rs. ${fmt(quotation.total)}`, TOT_VAL_X, y + 8,
-      { width: TOT_W_VAL, align: 'right', lineBreak: false });
-    y += GT_H + 22;
-
-    // ── 7. NOTES ──────────────────────────────────────────────────
-    if (quotation.notes) {
-      doc.font('Helvetica-Bold').fontSize(9).fillColor(COLOR.gold)
-        .text('NOTES', MARGIN, y, { lineBreak: false });
-      y += 13;
-      doc.font('Helvetica-Oblique').fontSize(8.5).fillColor(COLOR.midGray)
-        .text(quotation.notes, MARGIN, y, { width: PAGE_W - 2 * MARGIN });
-      y = doc.y + 10;
-    }
-
-    // ── 8. TERMS ──────────────────────────────────────────────────
-    doc.font('Helvetica-Oblique').fontSize(8).fillColor(COLOR.midGray)
-      .text(
-        'Terms & Conditions: Payment due within 15 days of quotation date. ' +
-        'Prices include all material and processing costs. ' +
-        'Final output may vary slightly based on print medium chosen.',
-        MARGIN, y,
-        { width: (PAGE_W / 2) - MARGIN - 10 }
-      );
-
-    // ── 9. SIGNATURE BLOCK ────────────────────────────────────────
-    const sigBaseY = PAGE_H - 110;
-    const sigRightX = PAGE_W - MARGIN - 130;
-
-    // Authorized Signatory – right
-    doc.font('Helvetica-Bold').fontSize(8).fillColor(COLOR.midGray)
-      .text('Authorized Signatory', sigRightX, sigBaseY, { width: 130, lineBreak: false });
-    hRule(doc, sigBaseY + 35, sigRightX, sigRightX + 130, COLOR.darkGray, 0.6);
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(COLOR.darkGray)
-      .text('Gabha Studio', sigRightX, sigBaseY + 40, { lineBreak: false });
-
-    // Company Stamp – left
-    doc.font('Helvetica-Bold').fontSize(8).fillColor(COLOR.midGray)
-      .text('Company Stamp', MARGIN, sigBaseY, { width: 130, lineBreak: false });
-    hRule(doc, sigBaseY + 35, MARGIN, MARGIN + 130, COLOR.divider, 0.6);
-
-    // ── 10. GOLD FOOTER BAR ───────────────────────────────────────
-    fillRect(doc, COLOR.gold, 0, PAGE_H - 28, PAGE_W, 28);
-    doc.font('Helvetica').fontSize(8).fillColor(COLOR.white)
-      .text(
-        'Thank you for your business  •  hello@gabhastudio.com  •  +91 9876543210',
-        0, PAGE_H - 18,
-        { align: 'center', width: PAGE_W, lineBreak: false }
-      );
-
-    doc.end();
-
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="Quotation_${quotation.quotationNumber}.pdf"`);
+    res.send(pdfBuffer);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

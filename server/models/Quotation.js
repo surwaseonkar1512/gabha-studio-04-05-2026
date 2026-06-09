@@ -69,7 +69,10 @@ const quotationSchema = new mongoose.Schema({
   date: {
     type: Date,
     default: Date.now
-  }
+  },
+  pdfUrl: { type: String },
+  pdfPublicId: { type: String },
+  generatedAt: { type: Date }
 }, { timestamps: true });
 
 const Quotation = mongoose.model('Quotation', quotationSchema);

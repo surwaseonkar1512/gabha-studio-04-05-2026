@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, Filter, Phone, Mail, MoreVertical, LayoutGrid, List as ListIcon, GripVertical, FileText, Download, Send, Trash2, Calculator, X, Navigation } from 'lucide-react';
+import { Plus, Search, Filter, Phone, Mail, MoreVertical, LayoutGrid, List as ListIcon, GripVertical, FileText, Download, Send, Trash2, Calculator, X, Navigation, Edit2, Calendar, Check } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import toast from 'react-hot-toast';
 import api from '../../api/axiosInstance';
@@ -23,7 +24,9 @@ interface Lead {
   notesRequirements?: string;
   hasQuotation?: boolean;
   quotationSkipped?: boolean;
-  message?: string
+  message?: string;
+  activityLogs?: any[];
+  reminders?: any[];
 }
 
 interface QuotationItem {
@@ -34,6 +37,7 @@ interface QuotationItem {
 const STAGES = ['New Lead', 'Contacted', 'Quote Sent', 'Booking', 'Completed'];
 
 const LeadsList = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchName, setSearchName] = useState('');
   const [searchProduct, setSearchProduct] = useState('');
   const [searchLocation, setSearchLocation] = useState('');
@@ -126,11 +130,17 @@ const LeadsList = () => {
 
   // Manage Lead Modal State
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-  const [activeTab, setActiveTab] = useState<'details' | 'quotations'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'quotations' | 'activity' | 'reminders'>('details');
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editLeadData, setEditLeadData] = useState<any>(null);
   const [isQuoting, setIsQuoting] = useState(false);
   const [quoteItems, setQuoteItems] = useState<QuotationItem[]>([{ description: '', amount: '' }]);
+  const [quotationNotes, setQuotationNotes] = useState('');
   const [gstEnabled, setGstEnabled] = useState(false);
   const [gstPercentage, setGstPercentage] = useState(18);
+
+  // Reminders State
+  const [newReminder, setNewReminder] = useState({ title: '', description: '', dueDate: '', priority: 'Medium' });
 
   // Advance Payment Modal State
   const [advanceModalState, setAdvanceModalState] = useState<{ isOpen: boolean; leadId: string; quotationId?: string; totalAmount: number | string } | null>(null);
@@ -149,6 +159,7 @@ const LeadsList = () => {
 
   // Delete Confirm Modal State
   const [deleteConfirmState, setDeleteConfirmState] = useState<string | null>(null);
+  const [deleteQuotationConfirmState, setDeleteQuotationConfirmState] = useState<string | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -213,6 +224,18 @@ const LeadsList = () => {
     }
   });
 
+  useEffect(() => {
+    const leadId = searchParams.get('leadId');
+    if (leadId && leads && !selectedLead) {
+      const lead = leads.find(l => l._id === leadId);
+      if (lead) {
+        setSelectedLead(lead);
+        searchParams.delete('leadId');
+        setSearchParams(searchParams, { replace: true });
+      }
+    }
+  }, [searchParams, leads, selectedLead, setSearchParams]);
+
   const { data: quotations, refetch: refetchQuotations } = useQuery({
     queryKey: ['quotations', selectedLead?._id],
     queryFn: async () => {
@@ -228,6 +251,15 @@ const LeadsList = () => {
       const { data } = await api.get('/quotation-masters');
       return data;
     }
+  });
+
+  const { data: reminders, refetch: refetchReminders } = useQuery({
+    queryKey: ['reminders', selectedLead?._id],
+    queryFn: async () => {
+      const { data } = await api.get(`/reminders/lead/${selectedLead?._id}`);
+      return data;
+    },
+    enabled: !!selectedLead && activeTab === 'reminders'
   });
 
   const updateLeadStageMutation = useMutation({
@@ -274,6 +306,22 @@ const LeadsList = () => {
     onError: () => toast.error('Failed to add lead')
   });
 
+  const editLeadMutation = useMutation({
+    mutationFn: async (leadData: any) => {
+      const { _id, ...rest } = leadData;
+      const { data } = await api.put(`/leads/${_id}`, rest);
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['leads'] });
+      setIsEditModalOpen(false);
+      setEditLeadData(null);
+      setSelectedLead(data);
+      toast.success('Lead updated successfully');
+    },
+    onError: () => toast.error('Failed to update lead')
+  });
+
   const createQuotationMutation = useMutation({
     mutationFn: async (quoteData: any) => {
       const { data } = await api.post('/quotations', quoteData);
@@ -288,6 +336,35 @@ const LeadsList = () => {
       setGstEnabled(false);
     },
     onError: () => toast.error('Failed to create quotation')
+  });
+
+  const createReminderMutation = useMutation({
+    mutationFn: async (reminderData: any) => {
+      const { data } = await api.post('/reminders', reminderData);
+      return data;
+    },
+    onSuccess: () => {
+      toast.success('Reminder added successfully');
+      setNewReminder({ title: '', description: '', dueDate: '', priority: 'Medium' });
+      refetchReminders();
+    },
+    onError: () => toast.error('Failed to add reminder')
+  });
+
+  const updateReminderMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string, status: string }) => {
+      const { data } = await api.put(`/reminders/${id}`, { status });
+      return data;
+    },
+    onSuccess: () => refetchReminders()
+  });
+
+  const deleteReminderMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await api.delete(`/reminders/${id}`);
+      return data;
+    },
+    onSuccess: () => refetchReminders()
   });
 
   const getStageColor = (stage: string) => {
@@ -407,7 +484,8 @@ const LeadsList = () => {
       leadId: selectedLead._id,
       items: validItems.map(item => ({ ...item, amount: Number(item.amount) })),
       gstEnabled,
-      gstPercentage
+      gstPercentage,
+      notes: quotationNotes
     });
   };
 
@@ -834,6 +912,16 @@ const LeadsList = () => {
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setEditLeadData(selectedLead);
+                    setIsEditModalOpen(true);
+                  }}
+                  className="p-2 hover:bg-gray-200 dark:hover:bg-zinc-800 rounded-full transition-colors text-gray-500 dark:text-gray-400"
+                  title="Edit Lead"
+                >
+                  <Edit2 size={20} />
+                </button>
                 {(selectedLead.stage === 'New Lead' || selectedLead.stage === 'Contacted') && (
                   <button
                     onClick={() => setDeleteConfirmState(selectedLead._id)}
@@ -856,17 +944,28 @@ const LeadsList = () => {
               </div>
             </div>
 
-            {/* Tabs */}
-            <div className="px-6 border-b border-gray-100 dark:border-zinc-800 flex gap-6">
+            <div className="px-6 border-b border-gray-100 dark:border-zinc-800 flex gap-6 overflow-x-auto custom-scrollbar">
               <button
                 onClick={() => { setActiveTab('details'); setIsQuoting(false); }}
-                className={`py-4 text-sm font-medium border-b-2 transition-colors ${activeTab === 'details' ? 'border-amber-500 text-amber-600 dark:text-amber-500' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
+                className={`py-4 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'details' ? 'border-amber-500 text-amber-600 dark:text-amber-500' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
               >
                 Lead Details
               </button>
               <button
+                onClick={() => { setActiveTab('activity'); setIsQuoting(false); }}
+                className={`py-4 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'activity' ? 'border-amber-500 text-amber-600 dark:text-amber-500' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
+              >
+                Activity Log
+              </button>
+              <button
+                onClick={() => { setActiveTab('reminders'); setIsQuoting(false); }}
+                className={`py-4 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'reminders' ? 'border-amber-500 text-amber-600 dark:text-amber-500' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
+              >
+                Reminders
+              </button>
+              <button
                 onClick={() => setActiveTab('quotations')}
-                className={`py-4 text-sm font-medium border-b-2 transition-colors flex items-center ${activeTab === 'quotations' ? 'border-amber-500 text-amber-600 dark:text-amber-500' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
+                className={`py-4 text-sm font-medium border-b-2 transition-colors flex items-center whitespace-nowrap ${activeTab === 'quotations' ? 'border-amber-500 text-amber-600 dark:text-amber-500' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
               >
                 <FileText size={16} className="mr-2" /> Quotations
                 {selectedLead.hasQuotation && <span className="ml-2 w-2 h-2 rounded-full bg-blue-500"></span>}
@@ -959,6 +1058,150 @@ const LeadsList = () => {
                 </div>
               )}
 
+              {activeTab === 'activity' && (
+                <div className="space-y-6">
+                  <div className="bg-gray-50 dark:bg-zinc-900/50 p-5 rounded-xl border border-gray-100 dark:border-zinc-800">
+                    <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Activity History</h3>
+                    {selectedLead.activityLogs && selectedLead.activityLogs.length > 0 ? (
+                      <div className="space-y-4 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-300 before:to-transparent">
+                        {selectedLead.activityLogs.map((log: any, i: number) => (
+                          <div key={i} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                            <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-amber-500 text-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                              <span className="text-xs font-bold">{i + 1}</span>
+                            </div>
+                            <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-sm">
+                              <div className="flex items-center justify-between space-x-2 mb-1">
+                                <div className="font-bold text-gray-900 dark:text-white">{log.action}</div>
+                                <time className="font-medium text-xs text-amber-600 dark:text-amber-500">{new Date(log.timestamp).toLocaleString()}</time>
+                              </div>
+                              {log.updatedBy && (
+                                <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">Updated by {log.updatedBy}</div>
+                              )}
+                              {log.changes && log.changes.length > 0 && (
+                                <ul className="text-xs text-gray-600 dark:text-gray-400 list-disc pl-5 mt-2 space-y-1">
+                                  {log.changes.map((change: any, j: number) => (
+                                    <li key={j}>Changed <span className="font-bold">{change.field}</span> from "{change.oldValue || 'none'}" to "{change.newValue}"</li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500 dark:text-gray-400">No activity logs found for this lead.</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'reminders' && (
+                <div className="space-y-6">
+                  <div className="bg-gray-50 dark:bg-zinc-900/50 p-5 rounded-xl border border-gray-100 dark:border-zinc-800">
+                    <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Add New Reminder</h3>
+                    <form 
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        if (!newReminder.title || !newReminder.dueDate) {
+                          toast.error('Title and Due Date are required');
+                          return;
+                        }
+                        createReminderMutation.mutate({ ...newReminder, leadId: selectedLead._id });
+                      }}
+                      className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                    >
+                      <div>
+                        <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Title *</label>
+                        <input
+                          type="text"
+                          required
+                          value={newReminder.title}
+                          onChange={e => setNewReminder({ ...newReminder, title: e.target.value })}
+                          className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-gray-300 dark:border-zinc-800 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-sm text-gray-900 dark:text-white"
+                          placeholder="e.g. Call for followup"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Due Date & Time *</label>
+                        <input
+                          type="datetime-local"
+                          required
+                          value={newReminder.dueDate}
+                          onChange={e => setNewReminder({ ...newReminder, dueDate: e.target.value })}
+                          className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-gray-300 dark:border-zinc-800 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-sm text-gray-900 dark:text-white"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Description</label>
+                        <textarea
+                          value={newReminder.description}
+                          onChange={e => setNewReminder({ ...newReminder, description: e.target.value })}
+                          className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-gray-300 dark:border-zinc-800 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-sm text-gray-900 dark:text-white"
+                          placeholder="Add any additional details here..."
+                          rows={2}
+                        />
+                      </div>
+                      <div className="md:col-span-2 flex justify-end">
+                        <button
+                          type="submit"
+                          disabled={createReminderMutation.isPending}
+                          className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors text-sm font-bold shadow-sm disabled:opacity-50"
+                        >
+                          {createReminderMutation.isPending ? 'Adding...' : 'Add Reminder'}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+
+                  <div className="bg-gray-50 dark:bg-zinc-900/50 p-5 rounded-xl border border-gray-100 dark:border-zinc-800">
+                    <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Upcoming & Past Reminders</h3>
+                    {reminders && reminders.length > 0 ? (
+                      <div className="space-y-3">
+                        {reminders.map((reminder: any) => (
+                          <div key={reminder._id} className={`p-4 rounded-xl border flex items-start justify-between gap-4 transition-colors ${reminder.status === 'Completed' ? 'bg-gray-100 dark:bg-zinc-900/30 border-transparent opacity-60' : 'bg-white dark:bg-zinc-950 border-gray-200 dark:border-zinc-800 shadow-sm'}`}>
+                            <div className="flex-1 min-w-0">
+                              <h4 className={`text-sm font-bold ${reminder.status === 'Completed' ? 'text-gray-500 line-through' : 'text-gray-900 dark:text-white'}`}>{reminder.title}</h4>
+                              {reminder.description && (
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">{reminder.description}</p>
+                              )}
+                              <div className="flex items-center gap-3 mt-2 text-xs font-medium">
+                                <span className={`flex items-center ${reminder.status === 'Completed' ? 'text-gray-400' : new Date(reminder.dueDate).getTime() < Date.now() ? 'text-red-500' : 'text-amber-600 dark:text-amber-500'}`}>
+                                  <Calendar size={12} className="mr-1" />
+                                  {new Date(reminder.dueDate).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {reminder.status === 'Pending' && (
+                                <button
+                                  onClick={() => updateReminderMutation.mutate({ id: reminder._id, status: 'Completed' })}
+                                  className="p-1.5 bg-green-50 text-green-600 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400 dark:hover:bg-green-900/40 rounded-lg transition-colors"
+                                  title="Mark as Completed"
+                                >
+                                  <Check size={16} />
+                                </button>
+                              )}
+                              <button
+                                onClick={() => deleteReminderMutation.mutate(reminder._id)}
+                                className="p-1.5 bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40 rounded-lg transition-colors"
+                                title="Delete Reminder"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <Calendar size={32} className="mx-auto text-gray-300 dark:text-zinc-700 mb-3" />
+                        <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">No reminders set for this lead.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {activeTab === 'quotations' && (
                 <div>
                   {!isQuoting ? (
@@ -1003,21 +1246,42 @@ const LeadsList = () => {
                                   <p className="text-lg font-bold text-amber-600 dark:text-amber-500">₹{quote.total.toLocaleString('en-IN')}</p>
                                 </div>
                               </div>
-                              <div className="flex gap-3 pt-4 border-t border-gray-100 dark:border-zinc-800">
+                              <div className="flex gap-2 pt-4 border-t border-gray-100 dark:border-zinc-800 flex-wrap">
                                 <button
-                                  onClick={() => window.open(`http://localhost:5000/api/quotations/${quote._id}/pdf`, '_blank')}
-                                  className="flex-1 flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-zinc-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors text-sm font-medium"
+                                  onClick={() => window.open(`${api.defaults.baseURL}/quotations/${quote._id}/pdf`, '_blank')}
+                                  className="flex-1 min-w-[120px] flex items-center justify-center px-3 py-1.5 border border-gray-300 dark:border-zinc-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors text-xs font-medium"
+                                  title="View PDF"
                                 >
-                                  <Download size={16} className="mr-2" /> Download PDF
+                                  <FileText size={14} className="mr-1.5" /> View
                                 </button>
                                 <button
                                   onClick={() => {
-                                    const text = `Hello ${selectedLead.name},\n\nHere is your quotation (${quote.quotationNumber}) for ₹${quote.total.toLocaleString('en-IN')}.\n\nYou can download the PDF here: http://localhost:5000/api/quotations/${quote._id}/pdf\n\nBest regards,\nGabha Studio`;
+                                    const link = document.createElement('a');
+                                    link.href = `${api.defaults.baseURL}/quotations/${quote._id}/pdf`;
+                                    link.download = `Quotation_${quote.quotationNumber}.pdf`;
+                                    link.target = '_blank';
+                                    link.click();
+                                  }}
+                                  className="flex-1 min-w-[120px] flex items-center justify-center px-3 py-1.5 border border-gray-300 dark:border-zinc-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors text-xs font-medium"
+                                  title="Download PDF"
+                                >
+                                  <Download size={14} className="mr-1.5" /> Download
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    const text = `Hello ${selectedLead.name},\n\nHere is your quotation (${quote.quotationNumber}) for ₹${quote.total.toLocaleString('en-IN')}.\n\nYou can view/download the PDF here: ${api.defaults.baseURL}/quotations/${quote._id}/pdf\n\nBest regards,\nGabha Studio`;
                                     window.open(`https://wa.me/${selectedLead.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(text)}`, '_blank');
                                   }}
-                                  className="flex-1 flex items-center justify-center px-4 py-2 bg-[#25D366] text-white rounded-lg hover:bg-[#1ebe5d] transition-colors text-sm font-medium shadow-sm shadow-[#25D366]/20"
+                                  className="flex-1 min-w-[120px] flex items-center justify-center px-3 py-1.5 bg-[#25D366] text-white rounded-lg hover:bg-[#1ebe5d] transition-colors text-xs font-medium shadow-sm shadow-[#25D366]/20"
                                 >
-                                  <Send size={16} className="mr-2" /> Send via WhatsApp
+                                  <Send size={14} className="mr-1.5" /> WhatsApp
+                                </button>
+                                <button
+                                  onClick={() => setDeleteQuotationConfirmState(quote._id)}
+                                  className="flex-1 min-w-[120px] flex items-center justify-center px-3 py-1.5 border border-red-200 dark:border-red-900/30 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-xs font-medium"
+                                  title="Delete Quotation"
+                                >
+                                  <Trash2 size={14} className="mr-1.5" /> Delete
                                 </button>
                               </div>
                             </div>
@@ -1156,6 +1420,16 @@ const LeadsList = () => {
                           <span className="font-bold text-gray-900 dark:text-white">Grand Total</span>
                           <span className="text-xl font-bold text-amber-600 dark:text-amber-500">₹{grandTotal.toLocaleString('en-IN')}</span>
                         </div>
+                      </div>
+
+                      <div className="bg-gray-50 dark:bg-zinc-900/50 p-5 rounded-xl border border-gray-100 dark:border-zinc-800 mb-8">
+                        <label className="block text-sm font-bold text-gray-900 dark:text-white mb-2 uppercase tracking-wider">Additional Notes</label>
+                        <textarea
+                          value={quotationNotes}
+                          onChange={(e) => setQuotationNotes(e.target.value)}
+                          className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-sm text-gray-900 dark:text-white min-h-[80px]"
+                          placeholder="Add any terms, conditions, or specific notes for this quotation..."
+                        />
                       </div>
 
                       <div className="flex justify-end gap-3 sticky bottom-0 bg-white dark:bg-zinc-950 pt-4 pb-2 border-t border-gray-100 dark:border-zinc-800">
@@ -1522,7 +1796,115 @@ const LeadsList = () => {
         </div>
       )}
 
-      {/* DELETE CONFIRM MODAL */}
+      {/* EDIT LEAD MODAL */}
+      {isEditModalOpen && editLeadData && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-gray-100 dark:border-zinc-800 flex justify-between items-center">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Edit Lead</h3>
+              <button
+                onClick={() => { setIsEditModalOpen(false); setEditLeadData(null); }}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl leading-none"
+              >
+                &times;
+              </button>
+            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                editLeadMutation.mutate(editLeadData);
+              }}
+              className="p-6 space-y-4 max-h-[70vh] overflow-y-auto"
+            >
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editLeadData.name}
+                  onChange={e => setEditLeadData({ ...editLeadData, name: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-gray-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone Number *</label>
+                <input
+                  type="tel"
+                  required
+                  value={editLeadData.phone}
+                  onChange={e => setEditLeadData({ ...editLeadData, phone: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-gray-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Address</label>
+                <input
+                  type="email"
+                  value={editLeadData.email || ''}
+                  onChange={e => setEditLeadData({ ...editLeadData, email: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-gray-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Product/Service Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editLeadData.productName}
+                  onChange={e => setEditLeadData({ ...editLeadData, productName: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-gray-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Customer Location (City/Area)</label>
+                <input
+                  type="text"
+                  value={editLeadData.location || ''}
+                  onChange={e => setEditLeadData({ ...editLeadData, location: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-gray-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Stage</label>
+                <select
+                  value={editLeadData.stage}
+                  onChange={e => setEditLeadData({ ...editLeadData, stage: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-gray-900 dark:text-white"
+                >
+                  {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes/Requirements</label>
+                <textarea
+                  value={editLeadData.notesRequirements || editLeadData.message || ''}
+                  onChange={e => setEditLeadData({ ...editLeadData, notesRequirements: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-gray-900 dark:text-white"
+                  rows={3}
+                />
+              </div>
+              <div className="pt-4 flex justify-end gap-3 border-t border-gray-100 dark:border-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => { setIsEditModalOpen(false); setEditLeadData(null); }}
+                  className="px-4 py-2 text-gray-600 dark:text-gray-400 font-medium hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editLeadMutation.isPending}
+                  className="px-4 py-2 bg-amber-600 text-white font-medium rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50"
+                >
+                  {editLeadMutation.isPending ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE CONFIRM MODAL FOR LEAD */}
       <ConfirmModal
         isOpen={!!deleteConfirmState}
         onClose={() => setDeleteConfirmState(null)}
@@ -1541,6 +1923,34 @@ const LeadsList = () => {
         confirmText="Delete"
         type="danger"
         isLoading={deleteLeadMutation.isPending}
+      />
+
+      {/* DELETE CONFIRM MODAL FOR QUOTATION */}
+      <ConfirmModal
+        isOpen={!!deleteQuotationConfirmState}
+        onClose={() => setDeleteQuotationConfirmState(null)}
+        onConfirm={() => {
+          if (deleteQuotationConfirmState) {
+            api.delete(`/quotations/${deleteQuotationConfirmState}`).then(() => {
+              toast.success('Quotation deleted');
+              refetchQuotations();
+              setDeleteQuotationConfirmState(null);
+            }).catch(() => {
+              toast.error('Failed to delete quotation');
+              setDeleteQuotationConfirmState(null);
+            });
+          }
+        }}
+        title="Delete Quotation?"
+        message={
+          <>
+            Are you sure you want to delete this quotation? <br />
+            <strong>This action cannot be undone.</strong>
+          </>
+        }
+        confirmText="Delete"
+        type="danger"
+        isLoading={false}
       />
     </div>
   );

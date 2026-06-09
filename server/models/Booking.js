@@ -8,7 +8,10 @@ const paymentSchema = new mongoose.Schema({
   reference: { type: String },
   notes: { type: String },
   isFinal: { type: Boolean, default: false },
-  proofUrls: [{ type: String }]
+  proofUrls: [{ type: String }],
+  pdfUrl: { type: String },
+  pdfPublicId: { type: String },
+  generatedAt: { type: Date }
 }, { timestamps: true });
 
 const bookingSchema = new mongoose.Schema({

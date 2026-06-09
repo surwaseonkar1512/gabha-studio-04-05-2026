@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2, Edit, Save, X, ClipboardList, Info } from 'lucide-react';
+import { Plus, Trash2, Edit, Save, X, ClipboardList, Info, Download } from 'lucide-react';
 import api from '../../api/axiosInstance';
 import toast from 'react-hot-toast';
+import ConfirmModal from '../../components/ui/ConfirmModal';
 
 interface MasterItem {
   description: string;
@@ -24,6 +25,8 @@ const QuotationMasterModule: React.FC = () => {
   const [name, setName] = useState('');
   const [items, setItems] = useState<MasterItem[]>([{ description: '', amount: 0 }]);
   const [gstPercentage, setGstPercentage] = useState(18);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deleteConfirmName, setDeleteConfirmName] = useState('');
 
   // Fetch all quotation templates
   const { data: masters, isLoading } = useQuery<QuotationMaster[]>({
@@ -69,9 +72,11 @@ const QuotationMasterModule: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['quotation-masters'] });
       toast.success('Template deleted successfully');
+      setDeleteConfirmId(null);
     },
     onError: () => {
       toast.error('Failed to delete template');
+      setDeleteConfirmId(null);
     }
   });
 
@@ -172,16 +177,26 @@ const QuotationMasterModule: React.FC = () => {
                     <button
                       onClick={() => handleEditClick(master)}
                       className="p-1.5 text-gray-500 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded transition-colors"
+                      title="Edit Template"
                     >
                       <Edit size={16} />
                     </button>
                     <button
                       onClick={() => {
-                        if (window.confirm(`Are you sure you want to delete template "${master.name}"?`)) {
-                          deleteMutation.mutate(master._id);
-                        }
+                        window.open(`${api.defaults.baseURL}/quotation-masters/${master._id}/pdf`, '_blank');
+                      }}
+                      className="p-1.5 text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded transition-colors"
+                      title="Download Sample PDF"
+                    >
+                      <Download size={16} />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setDeleteConfirmId(master._id);
+                        setDeleteConfirmName(master.name);
                       }}
                       className="p-1.5 text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded transition-colors"
+                      title="Delete Template"
                     >
                       <Trash2 size={16} />
                     </button>
@@ -267,7 +282,7 @@ const QuotationMasterModule: React.FC = () => {
                     <div key={idx} className="flex gap-3 items-center">
                       <input
                         type="text"
-                        placeholder="e.g. Full Day Photography, Cinematic Highlights"
+                        placeholder="e.g. Full Day Art, Cinematic Highlights"
                         value={item.description}
                         onChange={e => handleItemChange(idx, 'description', e.target.value)}
                         className="flex-1 px-3 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-800 text-gray-900 dark:text-white rounded-lg text-xs outline-none focus:ring-1 focus:ring-emerald-500"
@@ -344,6 +359,27 @@ const QuotationMasterModule: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* DELETE CONFIRM MODAL */}
+      <ConfirmModal
+        isOpen={!!deleteConfirmId}
+        onClose={() => setDeleteConfirmId(null)}
+        onConfirm={() => {
+          if (deleteConfirmId) {
+            deleteMutation.mutate(deleteConfirmId);
+          }
+        }}
+        title="Delete Template?"
+        message={
+          <>
+            Are you sure you want to delete template "{deleteConfirmName}"? <br />
+            <strong>This action cannot be undone.</strong>
+          </>
+        }
+        confirmText="Delete"
+        type="danger"
+        isLoading={deleteMutation.isPending}
+      />
     </div>
   );
 };

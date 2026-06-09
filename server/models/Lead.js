@@ -73,7 +73,29 @@ const leadSchema = new mongoose.Schema(
     quotationSkipped: {
       type: Boolean,
       default: false
-    }
+    },
+    activityLogs: [
+      {
+        field: String,
+        oldValue: mongoose.Schema.Types.Mixed,
+        newValue: mongoose.Schema.Types.Mixed,
+        updatedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+        },
+        updatedAt: {
+          type: Date,
+          default: Date.now,
+        },
+        ipAddress: String,
+      }
+    ],
+    reminders: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Reminder'
+      }
+    ]
   },
   {
     timestamps: true,

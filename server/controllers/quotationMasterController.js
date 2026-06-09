@@ -1,4 +1,7 @@
 const QuotationMaster = require('../models/QuotationMaster');
+const puppeteer = require('puppeteer');
+const { generatePDFHTML } = require('../utils/pdfTemplate');
+const SiteSettings = require('../models/SiteSettings');
 
 // @desc    Get all quotation templates
 // @route   GET /api/quotation-masters
@@ -85,9 +88,81 @@ const deleteMaster = async (req, res) => {
   }
 };
 
+// @desc    Generate PDF for template
+// @route   GET /api/quotation-masters/:id/pdf
+// @access  Public (or Private)
+const generateMasterPDF = async (req, res) => {
+  try {
+    const master = await QuotationMaster.findById(req.params.id);
+    if (!master) {
+      return res.status(404).json({ message: 'Template not found' });
+    }
+
+    const settings = await SiteSettings.findOne() || {};
+    
+    let subTotal = 0;
+    const items = master.items.map(item => {
+      subTotal += item.amount;
+      return {
+        description: item.description,
+        qty: 1,
+        rate: item.amount,
+        amount: item.amount
+      };
+    });
+
+    const gstPct = master.gstPercentage || 18;
+    const gstAmt = subTotal * (gstPct / 100);
+    const total = subTotal + gstAmt;
+
+    const data = {
+      type: 'QUOTATION TEMPLATE',
+      documentNo: master.name,
+      date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }),
+      preparedBy: 'Gabha Studio',
+      customer: null, // No customer for template
+      project: null,  // No project for template
+      items,
+      subTotal,
+      gstEnabled: gstPct > 0,
+      gstPercentage: gstPct,
+      gstAmount: gstAmt,
+      total,
+      notes: ['This is a master template preview.'],
+      terms: ['Standard Gabha Studio terms apply.'],
+      websiteName: settings.websiteName,
+      logoUrl: settings.websiteLogo,
+      signatureUrl: settings.ownerSignature,
+      stampUrl: settings.companyStamp,
+    };
+
+    const htmlContent = generatePDFHTML(data);
+
+    const browser = await puppeteer.launch({
+      headless: 'new',
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
+    const page = await browser.newPage();
+    await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: { top: '0', right: '0', bottom: '0', left: '0' }
+    });
+    await browser.close();
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Template_${master.name.replace(/\s+/g, '_')}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   getMasters,
   createMaster,
   updateMaster,
-  deleteMaster
+  deleteMaster,
+  generateMasterPDF
 };

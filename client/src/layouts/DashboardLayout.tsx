@@ -17,6 +17,7 @@ interface NotificationItem {
   type: string;
   isRead: boolean;
   createdAt: string;
+  link?: string;
 }
 
 const getTimeAgo = (dateString: string) => {
@@ -119,6 +120,22 @@ const DashboardLayout = () => {
       setNotifications(prev => prev.map(n => n._id === id ? { ...n, isRead: true } : n));
     } catch (error) {
       console.error('Failed to mark as read', error);
+    }
+  };
+
+  const handleNotificationClick = async (notif: NotificationItem) => {
+    if (!notif.isRead) {
+      await markAsRead(notif._id);
+    }
+    if (notif.link) {
+      if (notif.link.startsWith('/crm/leads/')) {
+        const id = notif.link.split('/').pop();
+        navigate(`/admin/crm?leadId=${id}`);
+      } else if (notif.link.startsWith('/admin')) {
+        navigate(notif.link);
+      } else {
+        navigate(notif.link.startsWith('/') ? notif.link : `/${notif.link}`);
+      }
     }
   };
 
@@ -290,7 +307,7 @@ const DashboardLayout = () => {
                         {notifications.map((notif) => (
                           <div
                             key={notif._id}
-                            onClick={() => !notif.isRead && markAsRead(notif._id)}
+                            onClick={() => handleNotificationClick(notif)}
                             className={`p-4 flex gap-4 transition-colors cursor-pointer hover:bg-gray-50 dark:hover:bg-zinc-800/50 ${!notif.isRead ? 'bg-amber-50 dark:bg-amber-900/10' : 'bg-transparent'
                               }`}
                           >

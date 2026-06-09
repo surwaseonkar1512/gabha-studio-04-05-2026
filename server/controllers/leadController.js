@@ -73,6 +73,7 @@ const createLead = async (req, res) => {
       title: 'New Lead Received!',
       message: `${createdLead.name} just sent an inquiry.`,
       type: 'lead',
+      link: `/crm/leads/${createdLead._id}`,
     });
 
     // Emit socket event to connected admins
@@ -112,6 +113,8 @@ const updateLead = async (req, res) => {
     const lead = await Lead.findById(req.params.id);
 
     if (lead) {
+      const oldValues = { ...lead.toObject() };
+
       if (stage && stage !== lead.stage) {
         const STAGES = ['New Lead', 'Contacted', 'Quote Sent', 'Booking', 'Completed'];
         const currentIndex = STAGES.indexOf(lead.stage);
@@ -139,6 +142,23 @@ const updateLead = async (req, res) => {
       if (longitude !== undefined) lead.longitude = longitude ? Number(longitude) : undefined;
       if (locationType !== undefined) lead.locationType = locationType;
       if (notesRequirements !== undefined) lead.notesRequirements = notesRequirements;
+
+      const fieldsToCheck = [
+        'name', 'phone', 'email', 'message', 'stage', 'source', 'quotationSkipped',
+        'productName', 'location', 'fullAddress', 'latitude', 'longitude', 'locationType', 'notesRequirements'
+      ];
+      
+      fieldsToCheck.forEach(field => {
+        if (lead[field] !== oldValues[field] && String(lead[field]) !== String(oldValues[field])) {
+          lead.activityLogs.push({
+            field,
+            oldValue: oldValues[field],
+            newValue: lead[field],
+            updatedBy: req.user ? req.user._id : undefined,
+            ipAddress: req.ip || req.connection?.remoteAddress
+          });
+        }
+      });
 
       const updatedLead = await lead.save();
       res.json(updatedLead);

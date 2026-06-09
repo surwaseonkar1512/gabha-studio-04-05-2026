@@ -24,6 +24,10 @@ const notificationSchema = new mongoose.Schema(
       ref: 'User',
       required: false,
     },
+    link: {
+      type: String,
+      required: false,
+    },
     createdAt: {
       type: Date,
       default: Date.now,

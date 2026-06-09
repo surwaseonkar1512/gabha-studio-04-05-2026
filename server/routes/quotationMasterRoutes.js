@@ -3,7 +3,8 @@ const {
   getMasters,
   createMaster,
   updateMaster,
-  deleteMaster
+  deleteMaster,
+  generateMasterPDF
 } = require('../controllers/quotationMasterController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -16,5 +17,7 @@ router.route('/')
 router.route('/:id')
   .put(protect, updateMaster)
   .delete(protect, deleteMaster);
+
+router.route('/:id/pdf').get(generateMasterPDF);
 
 module.exports = router;

@@ -5,6 +5,7 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const morgan = require('morgan');
 const connectDB = require('./config/db');
+const startCronJobs = require('./utils/cronJobs');
 
 // Connect to database
 connectDB();
@@ -22,6 +23,9 @@ const io = new Server(server, {
 
 // Store io in app so routes/controllers can access it
 app.set('io', io);
+
+// Start Cron Jobs
+startCronJobs(io);
 
 io.on('connection', (socket) => {
   console.log('Admin connected to socket:', socket.id);
@@ -47,6 +51,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/leads', require('./routes/leadRoutes'));
+app.use('/api/reminders', require('./routes/reminderRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/quotations', require('./routes/quotationRoutes'));
 app.use('/api/quotation-masters', require('./routes/quotationMasterRoutes'));

@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Search, Plus, Trash2, Download, Send, CheckCircle, Clock, X, FileText, ClipboardList, Eye, ArrowLeft, RefreshCw } from 'lucide-react';
 import api from '../../api/axiosInstance';
 import toast from 'react-hot-toast';
+import ConfirmModal from '../../components/ui/ConfirmModal';
 
 interface Lead {
   _id: string;
@@ -53,6 +54,7 @@ const QuotationModule: React.FC = () => {
   // Search & Filter state for List
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // Form State
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -135,9 +137,11 @@ const QuotationModule: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['quotations-list'] });
       toast.success('Quotation deleted successfully');
+      setDeleteConfirmId(null);
     },
     onError: () => {
       toast.error('Failed to delete quotation');
+      setDeleteConfirmId(null);
     }
   });
 
@@ -389,14 +393,14 @@ const QuotationModule: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 text-right space-x-2">
                         <button
-                          onClick={() => window.open(`http://localhost:5000/api/quotations/${quote._id}/pdf`, '_blank')}
+                          onClick={() => window.open(`${api.defaults.baseURL}/quotations/${quote._id}/pdf`, '_blank')}
                           className="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 font-bold transition-colors"
                         >
                           <Download size={14} /> PDF
                         </button>
                         <button
                           onClick={() => {
-                            const text = `Hello ${quote.customerName},\n\nHere is your quotation (${quote.quotationNumber}) for ₹${quote.total.toLocaleString('en-IN')}.\n\nYou can download the PDF here: http://localhost:5000/api/quotations/${quote._id}/pdf\n\nBest regards,\nGabha Studio`;
+                            const text = `Hello ${quote.customerName},\n\nHere is your quotation (${quote.quotationNumber}) for ₹${quote.total.toLocaleString('en-IN')}.\n\nYou can download the PDF here: ${api.defaults.baseURL}/quotations/${quote._id}/pdf\n\nBest regards,\nGabha Studio`;
                             window.open(`https://api.whatsapp.com/send?phone=91${quote.customerPhone}&text=${encodeURIComponent(text)}`, '_blank');
                           }}
                           className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 font-bold transition-colors"
@@ -404,11 +408,7 @@ const QuotationModule: React.FC = () => {
                           <Send size={14} /> WA
                         </button>
                         <button
-                          onClick={() => {
-                            if (window.confirm('Are you sure you want to delete this quotation?')) {
-                              deleteMutation.mutate(quote._id);
-                            }
-                          }}
+                          onClick={() => setDeleteConfirmId(quote._id)}
                           className="inline-flex items-center text-xs text-red-600 hover:text-red-700 font-bold transition-colors"
                         >
                           Delete
@@ -663,31 +663,31 @@ const QuotationModule: React.FC = () => {
 
                 <div className="flex items-center justify-between border-t border-gray-100 dark:border-zinc-800 pt-4">
                   <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={gstEnabled}
-                          onChange={e => setGstEnabled(e.target.checked)}
-                          className="rounded text-emerald-600 focus:ring-emerald-500"
-                        />
-                        <span className="text-xs text-gray-700 dark:text-gray-300 font-semibold cursor-pointer" onClick={() => setGstEnabled(!gstEnabled)}>Apply GST ({gstPercentage}%)</span>
-                        {gstEnabled && (
-                          <div className="flex items-center ml-1">
-                            <input
-                              type="number"
-                              min="0"
-                              max="99"
-                              value={gstPercentage}
-                              onChange={e => {
-                                const val = Number(e.target.value);
-                                setGstPercentage(val > 99 ? 99 : val < 0 ? 0 : val);
-                              }}
-                              className="w-12 px-1.5 py-0.5 text-xs border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 rounded focus:ring-1 focus:ring-emerald-500 text-center text-gray-900 dark:text-white"
-                            />
-                            <span className="ml-1 text-xs text-gray-500">%</span>
-                          </div>
-                        )}
-                      </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={gstEnabled}
+                        onChange={e => setGstEnabled(e.target.checked)}
+                        className="rounded text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <span className="text-xs text-gray-700 dark:text-gray-300 font-semibold cursor-pointer" onClick={() => setGstEnabled(!gstEnabled)}>Apply GST ({gstPercentage}%)</span>
+                      {gstEnabled && (
+                        <div className="flex items-center ml-1">
+                          <input
+                            type="number"
+                            min="0"
+                            max="99"
+                            value={gstPercentage}
+                            onChange={e => {
+                              const val = Number(e.target.value);
+                              setGstPercentage(val > 99 ? 99 : val < 0 ? 0 : val);
+                            }}
+                            className="w-12 px-1.5 py-0.5 text-xs border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 rounded focus:ring-1 focus:ring-emerald-500 text-center text-gray-900 dark:text-white"
+                          />
+                          <span className="ml-1 text-xs text-gray-500">%</span>
+                        </div>
+                      )}
+                    </div>
 
                     <div className="flex items-center gap-1.5 text-xs text-gray-500">
                       <span className="font-bold">Status:</span>
@@ -726,7 +726,7 @@ const QuotationModule: React.FC = () => {
               <div className="border border-gray-100 dark:border-zinc-800 rounded-lg p-4 bg-gray-50/50 dark:bg-zinc-950/20 text-[10px] space-y-4">
                 <div className="text-center pb-2 border-b border-gray-200 dark:border-zinc-800/80">
                   <h4 className="font-extrabold text-xs text-gray-900 dark:text-white tracking-widest uppercase">Gabha Studio</h4>
-                  <p className="text-gray-400 text-[8px] mt-0.5">Art Gallery & Photography Services</p>
+                  <p className="text-gray-400 text-[8px] mt-0.5">Art Gallery & Art Services</p>
                 </div>
 
                 <div className="flex justify-between items-start gap-4">
@@ -784,6 +784,27 @@ const QuotationModule: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* DELETE CONFIRM MODAL */}
+      <ConfirmModal
+        isOpen={!!deleteConfirmId}
+        onClose={() => setDeleteConfirmId(null)}
+        onConfirm={() => {
+          if (deleteConfirmId) {
+            deleteMutation.mutate(deleteConfirmId);
+          }
+        }}
+        title="Delete Quotation?"
+        message={
+          <>
+            Are you sure you want to delete this quotation? <br />
+            <strong>This action cannot be undone.</strong>
+          </>
+        }
+        confirmText="Delete"
+        type="danger"
+        isLoading={deleteMutation.isPending}
+      />
     </div>
   );
 };
