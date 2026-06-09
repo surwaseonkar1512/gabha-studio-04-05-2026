@@ -65,7 +65,7 @@ const DashboardLayout = () => {
     fetchNotifications();
 
     // Connect to Socket.io server
-    const socket = io('http://localhost:5000');
+    const socket = io('https://gabha-studio-04-05-2026.onrender.com');
 
     socket.on('new_lead', (lead) => {
       // Optimistically add notification or refetch
