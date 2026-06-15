@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
-import { Palette, Menu, X } from 'lucide-react';
-import api from '../api/axiosInstance';
+import React, { useEffect, useState } from "react";
+import { Outlet, Link, useLocation } from "react-router-dom";
+import { Palette, Menu, X } from "lucide-react";
+import api from "../api/axiosInstance";
+import Footer from "./Footer";
 
 const PublicLayout = () => {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
@@ -9,20 +10,20 @@ const PublicLayout = () => {
   const [settings, setSettings] = useState<any>(null);
 
   const navLinks = [
-    { name: 'Home', path: '/' },
-    { name: 'Artwork', path: '/#artwork' },
-    { name: 'Gallery', path: '/#gallery' },
-    { name: 'Our Story', path: '/#story' },
-    { name: 'Start a project', path: '/#project' },
+    { name: "Home", path: "/" },
+    { name: "Artwork", path: "/#artwork" },
+    { name: "Gallery", path: "/#gallery" },
+    { name: "Our Story", path: "/#story" },
+    { name: "Start a project", path: "/#project" },
   ];
 
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const { data } = await api.get('/cms/settings');
+        const { data } = await api.get("/cms/settings");
         setSettings(data);
       } catch (error) {
-        console.error('Failed to load settings', error);
+        console.error("Failed to load settings", error);
       }
     };
     fetchSettings();
@@ -34,18 +35,22 @@ const PublicLayout = () => {
         document.title = settings.metaTitle;
       }
       if (settings.favicon) {
-        const link = (document.querySelector("link[rel~='icon']") as HTMLLinkElement) || document.createElement('link');
-        link.type = 'image/x-icon';
-        link.rel = 'shortcut icon';
+        const link =
+          (document.querySelector("link[rel~='icon']") as HTMLLinkElement) ||
+          document.createElement("link");
+        link.type = "image/x-icon";
+        link.rel = "shortcut icon";
         link.href = settings.favicon;
-        document.getElementsByTagName('head')[0].appendChild(link);
+        document.getElementsByTagName("head")[0].appendChild(link);
       }
       if (settings.metaDescription) {
-        let meta = document.querySelector("meta[name='description']") as HTMLMetaElement;
+        let meta = document.querySelector(
+          "meta[name='description']",
+        ) as HTMLMetaElement;
         if (!meta) {
-          meta = document.createElement('meta');
-          meta.name = 'description';
-          document.getElementsByTagName('head')[0].appendChild(meta);
+          meta = document.createElement("meta");
+          meta.name = "description";
+          document.getElementsByTagName("head")[0].appendChild(meta);
         }
         meta.content = settings.metaDescription;
       }
@@ -64,14 +69,14 @@ const PublicLayout = () => {
               {settings?.navbarLogo || settings?.websiteLogo ? (
                 <img
                   src={settings?.navbarLogo || settings?.websiteLogo}
-                  alt={settings?.websiteName || 'Gabha Studio'}
+                  alt={settings?.websiteName || "Gabha Studio"}
                   className="h-12 w-auto object-contain"
                 />
               ) : (
                 <div className="flex items-center gap-2 text-white">
                   <Palette className="h-6 w-6 text-[#D4AF37]" />
                   <span className="text-lg font-semibold uppercase tracking-widest">
-                    {settings?.websiteName || 'Gabha Studio'}
+                    {settings?.websiteName || "Gabha Studio"}
                   </span>
                 </div>
               )}
@@ -82,7 +87,7 @@ const PublicLayout = () => {
                 <Link
                   key={link.name}
                   to={link.path}
-                  className={`transition-colors duration-200 ${isActive(link.path) ? 'text-white' : 'hover:text-white'}`}
+                  className={`transition-colors duration-200 ${isActive(link.path) ? "text-white" : "hover:text-white"}`}
                 >
                   {link.name}
                 </Link>
@@ -103,7 +108,11 @@ const PublicLayout = () => {
               className="inline-flex items-center justify-center rounded-full border border-white/20 bg-black/30 p-2 text-white md:hidden"
               onClick={() => setIsMenuOpen((prev) => !prev)}
             >
-              {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              {isMenuOpen ? (
+                <X className="h-5 w-5" />
+              ) : (
+                <Menu className="h-5 w-5" />
+              )}
             </button>
           </div>
         </div>
@@ -139,48 +148,7 @@ const PublicLayout = () => {
       </main>
 
       {/* Footer */}
-      <footer className="bg-black text-white py-12 border-t-4 border-[#D4AF37]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div>
-            <div className="flex items-center gap-2 mb-4">
-              {settings?.footerLogo ? (
-                <img src={settings.footerLogo} alt={settings.websiteName || "Gabha Studio"} className="h-10 w-auto object-contain" />
-              ) : (
-                <>
-                  <Palette className="h-6 w-6 text-[#D4AF37]" />
-                  <span className="text-xl font-bold tracking-widest uppercase">{settings?.websiteName || 'Gabha Studio'}</span>
-                </>
-              )}
-            </div>
-            <p className="text-gray-400 text-sm leading-relaxed">
-              {settings?.footerText || 'Crafting timeless statues and sculptures that capture the essence of pure art. Elevate your space with our masterpieces.'}
-            </p>
-          </div>
-          <div>
-            <h3 className="text-lg font-bold uppercase tracking-widest mb-4 text-[#D4AF37]">Quick Links</h3>
-            <ul className="space-y-2">
-              {navLinks.map((link) => (
-                <li key={link.name}>
-                  <Link to={link.path} className="text-gray-400 hover:text-white transition-colors text-sm">
-                    {link.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <h3 className="text-lg font-bold uppercase tracking-widest mb-4 text-[#D4AF37]">Contact</h3>
-            <ul className="space-y-2 text-sm text-gray-400">
-              <li>{settings?.emailAddress || 'info@gabhastudio.com'}</li>
-              <li>{settings?.phoneNumber || '+1 (555) 123-4567'}</li>
-              <li>{settings?.companyAddress || 'Artisan District, New York, NY'}</li>
-            </ul>
-          </div>
-        </div>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12 pt-8 border-t border-zinc-800 text-center text-gray-500 text-xs tracking-wider">
-          {settings?.copyrightText || `© ${new Date().getFullYear()} ${settings?.websiteName || 'Gabha Studio'}. All rights reserved.`}
-        </div>
-      </footer>
+      <Footer navLinks={navLinks} settings={settings} />
     </div>
   );
 };

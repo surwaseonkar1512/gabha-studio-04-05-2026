@@ -1,13 +1,14 @@
-import { useEffect, useState } from 'react';
-import api from '../../api/axiosInstance';
-import HomeBanner from '../../components/public/HomeBanner';
-import AboutSection from '../../components/public/AboutSection';
-import FeaturedCollection from '../../components/public/FeaturedCollection';
-import SwiperGallery from '../../components/public/SwiperGallery';
-import AestheticBanner from '../../components/public/AestheticBanner';
-import TestimonialsSection from '../../components/public/TestimonialsSection';
-import InstagramFeed from '../../components/public/InstagramFeed';
-import Gabha from '../../components/public/Gabha';
+import { useEffect, useState } from "react";
+import api from "../../api/axiosInstance";
+import HomeBanner from "../../components/public/HomeBanner";
+import AboutSection from "../../components/public/AboutSection";
+import FeaturedCollection from "../../components/public/FeaturedCollection";
+import SwiperGallery from "../../components/public/SwiperGallery";
+import AestheticBanner from "../../components/public/AestheticBanner";
+import TestimonialsSection from "../../components/public/TestimonialsSection";
+import InstagramFeed from "../../components/public/InstagramFeed";
+import Gabha from "../../components/public/Gabha";
+import VideoArtwork from "../../components/public/VideoArtwork";
 
 const Home = () => {
   const [banners, setBanners] = useState<any[]>([]);
@@ -19,18 +20,19 @@ const Home = () => {
 
   // Slideshow state
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [activeGalleryTab, setActiveGalleryTab] = useState<string>('');
+  const [activeGalleryTab, setActiveGalleryTab] = useState<string>("");
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [bannersRes, aboutRes, igRes, testimonialsRes, galleriesRes] = await Promise.all([
-          api.get('/cms/banners'),
-          api.get('/cms/about'),
-          api.get('/cms/instagram'),
-          api.get('/cms/testimonials'),
-          api.get('/cms/gallery')
-        ]);
+        const [bannersRes, aboutRes, igRes, testimonialsRes, galleriesRes] =
+          await Promise.all([
+            api.get("/cms/banners"),
+            api.get("/cms/about"),
+            api.get("/cms/instagram"),
+            api.get("/cms/testimonials"),
+            api.get("/cms/gallery"),
+          ]);
 
         const activeBanners = bannersRes.data.filter((b: any) => b.isActive);
         setBanners(activeBanners);
@@ -38,13 +40,15 @@ const Home = () => {
         setInstagramPosts(igRes.data);
         setTestimonials(testimonialsRes.data.filter((t: any) => t.isActive));
 
-        const activeGalleries = galleriesRes.data.filter((g: any) => g.isActive);
+        const activeGalleries = galleriesRes.data.filter(
+          (g: any) => g.isActive,
+        );
         setGalleries(activeGalleries);
         if (activeGalleries.length > 0) {
           setActiveGalleryTab(activeGalleries[0]._id);
         }
       } catch (error) {
-        console.error('Failed to load home page content', error);
+        console.error("Failed to load home page content", error);
       } finally {
         setLoading(false);
       }
@@ -62,19 +66,32 @@ const Home = () => {
   }, [banners]);
 
   if (loading) {
-    return <div className="min-h-screen grid place-items-center">Loading...</div>;
+    return (
+      <div className="min-h-screen grid place-items-center">Loading...</div>
+    );
   }
 
   return (
-    <div className="bg-white">
-      <HomeBanner banners={banners} currentSlide={currentSlide} setCurrentSlide={setCurrentSlide} />
-      <AboutSection aboutUs={aboutUs} />
-      <SwiperGallery galleries={galleries} activeGalleryTab={activeGalleryTab} setActiveGalleryTab={setActiveGalleryTab} />
-      <Gabha />
-      <FeaturedCollection />
-      <AestheticBanner />
-      <TestimonialsSection testimonials={testimonials} />
-      <InstagramFeed instagramPosts={instagramPosts} />
+    <div>
+      <HomeBanner
+        banners={banners}
+        currentSlide={currentSlide}
+        setCurrentSlide={setCurrentSlide}
+      />
+      <div className=" max-w-[1200px] mx-auto">
+        <AboutSection aboutUs={aboutUs} />
+        <SwiperGallery
+          galleries={galleries}
+          activeGalleryTab={activeGalleryTab}
+          setActiveGalleryTab={setActiveGalleryTab}
+        />
+        <Gabha />
+        <FeaturedCollection />
+        <VideoArtwork />
+        {/* <AestheticBanner /> */}
+        <TestimonialsSection testimonials={testimonials} />
+        <InstagramFeed instagramPosts={instagramPosts} />
+      </div>
     </div>
   );
 };
