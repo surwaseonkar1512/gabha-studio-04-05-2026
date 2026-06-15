@@ -10,8 +10,10 @@ const PublicLayout = () => {
 
   const navLinks = [
     { name: 'Home', path: '/' },
-    { name: 'About', path: '/about' },
-    { name: 'Contact', path: '/contact' },
+    { name: 'Artwork', path: '/#artwork' },
+    { name: 'Gallery', path: '/#gallery' },
+    { name: 'Our Story', path: '/#story' },
+    { name: 'Start a project', path: '/#project' },
   ];
 
   useEffect(() => {
@@ -53,76 +55,78 @@ const PublicLayout = () => {
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <div className="min-h-screen flex flex-col font-sans bg-white text-black">
+    <div className="min-h-screen flex flex-col font-sans bg-transparent text-white">
       {/* Header */}
-      <header className="bg-black text-white sticky top-0 z-50 shadow-lg">
+      <header className="sticky top-0 z-50 bg-black/15 backdrop-blur-xl border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-20">
-            {/* Logo */}
-            <Link to="/" className="flex items-center gap-2">
-              {settings?.navbarLogo ? (
-                <img src={settings.navbarLogo} alt={settings.websiteName || "Gabha Studio"} className="h-12 w-auto object-contain" />
+          <div className="flex h-20 items-center justify-between gap-4">
+            <Link to="/" className="flex items-center gap-3">
+              {settings?.navbarLogo || settings?.websiteLogo ? (
+                <img
+                  src={settings?.navbarLogo || settings?.websiteLogo}
+                  alt={settings?.websiteName || 'Gabha Studio'}
+                  className="h-12 w-auto object-contain"
+                />
               ) : (
-                <>
-                  <Palette className="h-8 w-8 text-[#D4AF37]" />
-                  <span className="text-2xl font-bold tracking-widest uppercase">{settings?.websiteName || 'Gabha Studio'}</span>
-                </>
+                <div className="flex items-center gap-2 text-white">
+                  <Palette className="h-6 w-6 text-[#D4AF37]" />
+                  <span className="text-lg font-semibold uppercase tracking-widest">
+                    {settings?.websiteName || 'Gabha Studio'}
+                  </span>
+                </div>
               )}
             </Link>
 
-            {/* Desktop Nav */}
-            <nav className="hidden md:flex items-center space-x-8">
+            <nav className="hidden md:flex items-center gap-8 text-sm uppercase tracking-[0.22em] text-white/80">
               {navLinks.map((link) => (
                 <Link
                   key={link.name}
                   to={link.path}
-                  className={`text-sm tracking-widest uppercase font-medium transition-colors hover:text-[#D4AF37] ${
-                    isActive(link.path) ? 'text-[#D4AF37]' : 'text-gray-300'
-                  }`}
+                  className={`transition-colors duration-200 ${isActive(link.path) ? 'text-white' : 'hover:text-white'}`}
                 >
                   {link.name}
                 </Link>
               ))}
-              <Link
-                to="/login"
-                className="ml-8 px-6 py-2.5 border border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-black transition-colors text-sm tracking-widest uppercase font-bold"
-              >
-                Client Portal
-              </Link>
             </nav>
 
-            {/* Mobile Menu Button */}
+            <div className="hidden md:flex items-center gap-4">
+              <Link
+                to="/contact"
+                className="inline-flex items-center gap-2 rounded-full bg-[#D4AF37] px-5 py-3 text-sm font-semibold uppercase tracking-[0.22em] text-black transition hover:bg-[#e0c56d]"
+              >
+                Contact Us
+              </Link>
+            </div>
+
             <button
-              className="md:hidden text-gray-300 hover:text-white focus:outline-none"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              type="button"
+              className="inline-flex items-center justify-center rounded-full border border-white/20 bg-black/30 p-2 text-white md:hidden"
+              onClick={() => setIsMenuOpen((prev) => !prev)}
             >
-              {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
           </div>
         </div>
 
-        {/* Mobile Nav */}
         {isMenuOpen && (
-          <div className="md:hidden bg-zinc-900 border-t border-zinc-800">
-            <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+          <div className="md:hidden border-t border-white/10 bg-black/70 backdrop-blur-xl">
+            <div className="max-w-7xl mx-auto px-4 py-4 space-y-3">
               {navLinks.map((link) => (
                 <Link
                   key={link.name}
                   to={link.path}
                   onClick={() => setIsMenuOpen(false)}
-                  className={`block px-3 py-3 rounded-md text-base font-medium uppercase tracking-wider ${
-                    isActive(link.path) ? 'text-[#D4AF37] bg-black' : 'text-gray-300 hover:text-white hover:bg-black'
-                  }`}
+                  className="block text-white/90 hover:text-white text-base uppercase tracking-[0.2em]"
                 >
                   {link.name}
                 </Link>
               ))}
               <Link
-                to="/login"
+                to="/contact"
                 onClick={() => setIsMenuOpen(false)}
-                className="block mt-4 px-3 py-3 rounded-md text-base font-bold uppercase tracking-wider text-[#D4AF37] border border-[#D4AF37] text-center"
+                className="block rounded-full bg-[#D4AF37] px-5 py-3 text-center text-sm font-semibold uppercase tracking-[0.22em] text-black"
               >
-                Client Portal
+                Contact Us
               </Link>
             </div>
           </div>

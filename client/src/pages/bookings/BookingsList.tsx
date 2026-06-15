@@ -26,7 +26,6 @@ interface Payment {
   amount: number;
   date: string;
   method: string;
-  method: string;
   reference?: string;
   notes?: string;
   isFinal: boolean;

@@ -6,5 +6,26 @@
 @layer base {
   body {
     @apply antialiased text-gray-900 bg-gray-50 transition-colors duration-200 dark:bg-zinc-950 dark:text-zinc-50;
+    font-family: 'Fraunces', serif;
+  }
+}
+
+@layer utilities {
+  .font-fraunces {
+    font-family: 'Fraunces', serif;
+  }
+
+  .font-tangerine {
+    font-family: 'Tangerine', cursive;
+  }
+
+  .font-instrument-sans {
+    font-family: 'Instrument Sans', sans-serif;
+  }
+
+  .text-outline {
+    color: transparent;
+    -webkit-text-stroke: 1.5px rgba(255, 255, 255, 0.95);
+    text-stroke: 1.5px rgba(255, 255, 255, 0.95);
   }
 }
