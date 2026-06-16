@@ -5,7 +5,7 @@ const {
   updateUser,
   deleteUser,
 } = require('../controllers/userController');
-const { protect, authorize } = require('../middleware/authMiddleware');
+const { protect, checkPermission } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
@@ -13,12 +13,12 @@ router.use(protect);
 
 router
   .route('/')
-  .get(authorize('SUPER_ADMIN', 'ADMIN'), getUsers)
-  .post(authorize('SUPER_ADMIN', 'ADMIN'), createUser);
+  .get(checkPermission('employees', 'view'), getUsers)
+  .post(checkPermission('employees', 'create'), createUser);
 
 router
   .route('/:id')
-  .put(authorize('SUPER_ADMIN', 'ADMIN'), updateUser)
-  .delete(authorize('SUPER_ADMIN'), deleteUser);
+  .put(checkPermission('employees', 'edit'), updateUser)
+  .delete(checkPermission('employees', 'delete'), deleteUser);
 
 module.exports = router;

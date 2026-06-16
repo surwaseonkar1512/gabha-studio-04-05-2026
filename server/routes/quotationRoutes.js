@@ -7,15 +7,15 @@ const {
   deleteQuotation,
   generateQuotationPDF,
 } = require('../controllers/quotationController');
-const { protect } = require('../middleware/authMiddleware');
+const { protect, checkPermission } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
-router.post('/', protect, createQuotation);
-router.get('/', protect, getQuotations);
-router.get('/lead/:leadId', protect, getLeadQuotations);
-router.put('/:id', protect, updateQuotation);
-router.delete('/:id', protect, deleteQuotation);
+router.post('/', protect, checkPermission('quotations', 'create'), createQuotation);
+router.get('/', protect, checkPermission('quotations', 'view'), getQuotations);
+router.get('/lead/:leadId', protect, checkPermission('quotations', 'view'), getLeadQuotations);
+router.put('/:id', protect, checkPermission('quotations', 'edit'), updateQuotation);
+router.delete('/:id', protect, checkPermission('quotations', 'delete'), deleteQuotation);
 // Make PDF generation public so clients can download it via WhatsApp directly if needed
 router.get('/:id/pdf', generateQuotationPDF);
 

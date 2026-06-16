@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, Navigate } from 'react-router-dom';
 import { LayoutDashboard, Users, CreditCard, Layers, User, LogOut, Sun, Moon, Bell, Check, CheckCheck, UserPlus, Info, AlertCircle, Calendar, FileText, Copy, Image, Settings, Palette, Mail } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
-import { logout } from '../store/authSlice';
+import { logout, setUser } from '../store/authSlice';
 import { useTheme } from '../context/ThemeContext';
 import io from 'socket.io-client';
 import toast, { Toaster } from 'react-hot-toast';
@@ -51,6 +51,31 @@ const DashboardLayout = () => {
   const [logoutConfirmState, setLogoutConfirmState] = useState(false);
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
+
+  // Load user profile on mount if token exists but user object is not in store
+  useEffect(() => {
+    const loadProfile = async () => {
+      const token = localStorage.getItem('token');
+      if (token && !user) {
+        try {
+          const { data } = await api.get('/auth/profile');
+          dispatch(setUser(data));
+        } catch (err) {
+          console.error('Error fetching user profile:', err);
+          dispatch(logout());
+          navigate('/login');
+        }
+      }
+    };
+    loadProfile();
+  }, [user, dispatch, navigate]);
+
+  // Redirect to Force Password Change if mustChangePassword is true
+  useEffect(() => {
+    if (user?.mustChangePassword) {
+      navigate('/change-password', { replace: true });
+    }
+  }, [user, navigate]);
 
   const fetchNotifications = async () => {
     try {
@@ -203,34 +228,41 @@ const DashboardLayout = () => {
     navigate('/login');
   };
 
+  const hasModulePermission = (moduleName: string) => {
+    if (!user) return false;
+    if (user.role === 'SUPER_ADMIN') return true;
+    return user.permissions?.[moduleName]?.includes('view') || false;
+  };
+
   const crmItems = [
-    { name: 'Dashboard', path: '/admin', icon: <LayoutDashboard size={18} /> },
-    { name: 'Leads', path: '/admin/crm', icon: <Users size={18} /> },
-    { name: 'Contact Us', path: '/admin/contacts', icon: <Mail size={18} /> },
-    { name: 'Newsletter Subscribers', path: '/admin/newsletter', icon: <FileText size={18} /> },
-    { name: 'Quotations', path: '/admin/quotations', icon: <FileText size={18} /> },
-    { name: 'Products', path: '/admin/cms/products', icon: <Layers size={18} /> },
-    { name: 'Customers', path: '/admin/customers', icon: <Users size={18} /> },
-    { name: 'Bookings', path: '/admin/bookings', icon: <Calendar size={18} /> },
-    { name: 'Expenses', path: '/admin/expenses', icon: <CreditCard size={18} /> },
-  ];
+    { name: 'Dashboard', path: '/admin', icon: <LayoutDashboard size={18} />, module: 'dashboard' },
+    { name: 'Leads', path: '/admin/crm', icon: <Users size={18} />, module: 'crm' },
+    { name: 'Contact Us', path: '/admin/contacts', icon: <Mail size={18} />, module: 'crm' },
+    { name: 'Newsletter Subscribers', path: '/admin/newsletter', icon: <FileText size={18} />, module: 'crm' },
+    { name: 'Quotations', path: '/admin/quotations', icon: <FileText size={18} />, module: 'quotations' },
+    { name: 'Products', path: '/admin/cms/products', icon: <Layers size={18} />, module: 'products' },
+    { name: 'Customers', path: '/admin/customers', icon: <Users size={18} />, module: 'crm' },
+    { name: 'Bookings', path: '/admin/bookings', icon: <Calendar size={18} />, module: 'orders' },
+    { name: 'Expenses', path: '/admin/expenses', icon: <CreditCard size={18} />, module: 'expenses' },
+    { name: 'Employees', path: '/admin/employees', icon: <Users size={18} />, module: 'employees' },
+  ].filter(item => hasModulePermission(item.module));
 
   const cmsItems = [
-    { name: 'Banners', path: '/admin/cms/banners', icon: <Layers size={18} /> },
-    { name: 'About Us', path: '/admin/cms/about', icon: <Info size={18} /> },
-    { name: 'Gallery', path: '/admin/cms/gallery', icon: <Image size={18} /> },
-    { name: 'Categories', path: '/admin/cms/categories', icon: <Palette size={18} /> },
-    { name: 'Instagram Gallery', path: '/admin/cms/instagram', icon: <FileText size={18} /> },
-    { name: 'Testimonials', path: '/admin/cms/testimonials', icon: <FileText size={18} /> },
-    { name: 'Site Settings', path: '/admin/cms/settings', icon: <Settings size={18} /> },
-  ];
+    { name: 'Banners', path: '/admin/cms/banners', icon: <Layers size={18} />, module: 'cms' },
+    { name: 'About Us', path: '/admin/cms/about', icon: <Info size={18} />, module: 'cms' },
+    { name: 'Gallery', path: '/admin/cms/gallery', icon: <Image size={18} />, module: 'cms' },
+    { name: 'Categories', path: '/admin/cms/categories', icon: <Palette size={18} />, module: 'categories' },
+    { name: 'Instagram Gallery', path: '/admin/cms/instagram', icon: <FileText size={18} />, module: 'cms' },
+    { name: 'Testimonials', path: '/admin/cms/testimonials', icon: <FileText size={18} />, module: 'cms' },
+    { name: 'Site Settings', path: '/admin/cms/settings', icon: <Settings size={18} />, module: 'cms' },
+  ].filter(item => hasModulePermission(item.module));
 
   const mobileNavItems = [
-    { name: 'Dashboard', path: '/admin', icon: <LayoutDashboard size={20} /> },
-    { name: 'Leads', path: '/admin/crm', icon: <Users size={20} /> },
-    { name: 'Bookings', path: '/admin/bookings', icon: <Calendar size={20} /> },
-    { name: 'CMS Settings', path: '/admin/cms', icon: <Layers size={20} /> },
-  ];
+    { name: 'Dashboard', path: '/admin', icon: <LayoutDashboard size={20} />, module: 'dashboard' },
+    { name: 'Leads', path: '/admin/crm', icon: <Users size={20} />, module: 'crm' },
+    { name: 'Bookings', path: '/admin/bookings', icon: <Calendar size={20} />, module: 'orders' },
+    { name: 'CMS Settings', path: '/admin/cms', icon: <Layers size={20} />, module: 'cms' },
+  ].filter(item => hasModulePermission(item.module));
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
@@ -240,6 +272,10 @@ const DashboardLayout = () => {
       default: return <Info size={18} className="text-zinc-500" />;
     }
   };
+
+  if (user?.mustChangePassword) {
+    return <Navigate to="/change-password" replace />;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-zinc-950 flex flex-col md:flex-row transition-colors duration-200">
@@ -254,53 +290,60 @@ const DashboardLayout = () => {
 
         <nav className="flex-1 py-6 px-3 space-y-6 overflow-y-auto custom-scrollbar">
           {/* CRM Section */}
-          <div>
-            <p className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500">CRM System</p>
-            <div className="space-y-1">
-              {crmItems.map((item) => (
-                <NavLink
-                  key={item.name}
-                  to={item.path}
-                  end={item.path === '/admin'}
-                  className={({ isActive }) =>
-                    `flex items-center px-3 py-2 rounded-lg transition-colors group ${isActive
-                      ? 'bg-amber-600/10 text-amber-500'
-                      : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
-                    }`
-                  }
-                >
-                  <span className="mr-3">{item.icon}</span>
-                  <span className="font-medium text-sm">{item.name}</span>
-                </NavLink>
-              ))}
+          {crmItems.length > 0 && (
+            <div>
+              <p className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500">CRM System</p>
+              <div className="space-y-1">
+                {crmItems.map((item) => (
+                  <NavLink
+                    key={item.name}
+                    to={item.path}
+                    end={item.path === '/admin'}
+                    className={({ isActive }) =>
+                      `flex items-center px-3 py-2 rounded-lg transition-colors group ${isActive
+                        ? 'bg-amber-600/10 text-amber-500'
+                        : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                      }`
+                    }
+                  >
+                    <span className="mr-3">{item.icon}</span>
+                    <span className="font-medium text-sm">{item.name}</span>
+                  </NavLink>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* CMS Section */}
-          <div>
-            <p className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500">CMS System</p>
-            <div className="space-y-1">
-              {cmsItems.map((item) => (
-                <NavLink
-                  key={item.name}
-                  to={item.path}
-                  className={({ isActive }) =>
-                    `flex items-center px-3 py-2 rounded-lg transition-colors group ${isActive
-                      ? 'bg-amber-600/10 text-amber-500'
-                      : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
-                    }`
-                  }
-                >
-                  <span className="mr-3">{item.icon}</span>
-                  <span className="font-medium text-sm">{item.name}</span>
-                </NavLink>
-              ))}
+          {cmsItems.length > 0 && (
+            <div>
+              <p className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500">CMS System</p>
+              <div className="space-y-1">
+                {cmsItems.map((item) => (
+                  <NavLink
+                    key={item.name}
+                    to={item.path}
+                    className={({ isActive }) =>
+                      `flex items-center px-3 py-2 rounded-lg transition-colors group ${isActive
+                        ? 'bg-amber-600/10 text-amber-500'
+                        : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                      }`
+                    }
+                  >
+                    <span className="mr-3">{item.icon}</span>
+                    <span className="font-medium text-sm">{item.name}</span>
+                  </NavLink>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </nav>
 
         <div className="p-4 border-t border-zinc-800 space-y-1 shrink-0">
-          <button className="flex w-full items-center px-3 py-2 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors">
+          <button
+            onClick={() => navigate('/admin/profile')}
+            className="flex w-full items-center px-3 py-2 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors"
+          >
             <User size={18} className="mr-3" />
             <span className="font-medium text-sm">Profile</span>
           </button>

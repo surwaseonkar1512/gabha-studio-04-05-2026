@@ -5,6 +5,14 @@ interface User {
   name: string;
   email: string;
   role: string;
+  profileImage?: string;
+  phone?: string;
+  employeeId?: string;
+  department?: string;
+  designation?: string;
+  status?: string;
+  mustChangePassword?: boolean;
+  loginActivity?: { timestamp: string; ipAddress: string; userAgent: string }[];
   permissions: Record<string, string[]>;
 }
 
@@ -33,6 +41,9 @@ const authSlice = createSlice({
       state.isAuthenticated = true;
       localStorage.setItem('token', action.payload.token);
     },
+    setUser: (state, action: PayloadAction<User>) => {
+      state.user = action.payload;
+    },
     logout: (state) => {
       state.user = null;
       state.token = null;
@@ -42,6 +53,6 @@ const authSlice = createSlice({
   },
 });
 
-export const { setCredentials, logout } = authSlice.actions;
+export const { setCredentials, setUser, logout } = authSlice.actions;
 
 export default authSlice.reducer;

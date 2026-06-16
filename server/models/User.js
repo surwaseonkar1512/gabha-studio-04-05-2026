@@ -20,28 +20,88 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['SUPER_ADMIN', 'ADMIN', 'STAFF'],
+      enum: ['SUPER_ADMIN', 'ADMIN', 'STAFF', 'manager', 'admin', 'user'],
       default: 'STAFF',
     },
+    profileImage: {
+      type: String,
+      default: '',
+    },
+    phone: {
+      type: String,
+      default: '',
+    },
+    employeeId: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+    department: {
+      type: String,
+      default: '',
+    },
+    designation: {
+      type: String,
+      default: '',
+    },
+    status: {
+      type: String,
+      enum: ['Active', 'Inactive'],
+      default: 'Active',
+    },
+    mustChangePassword: {
+      type: Boolean,
+      default: false,
+    },
+    loginActivity: [
+      {
+        timestamp: {
+          type: Date,
+          default: Date.now,
+        },
+        ipAddress: String,
+        userAgent: String,
+      },
+    ],
     permissions: {
+      products: {
+        type: [String],
+        default: [],
+      },
+      categories: {
+        type: [String],
+        default: [],
+      },
+      orders: {
+        type: [String],
+        default: [],
+      },
       crm: {
         type: [String],
-        enum: ['view', 'add', 'edit', 'delete'],
         default: ['view'],
+      },
+      quotations: {
+        type: [String],
+        default: [],
+      },
+      employees: {
+        type: [String],
+        default: [],
+      },
+      reports: {
+        type: [String],
+        default: [],
       },
       cms: {
         type: [String],
-        enum: ['view', 'add', 'edit', 'delete'],
         default: [],
       },
       expenses: {
         type: [String],
-        enum: ['view', 'add', 'edit', 'delete'],
         default: [],
       },
       dashboard: {
         type: [String],
-        enum: ['view'],
         default: [],
       },
     },
@@ -55,11 +115,24 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-// Hash password before saving
+// Hash password before saving & set employee ID
 userSchema.pre('save', async function () {
+  if (this.isNew && !this.employeeId) {
+    const lastUser = await mongoose.model('User').findOne({ employeeId: /^EMP-\d+/ }).sort({ employeeId: -1 });
+    let nextNum = 1;
+    if (lastUser && lastUser.employeeId) {
+      const matches = lastUser.employeeId.match(/EMP-(\d+)/);
+      if (matches) {
+        nextNum = parseInt(matches[1], 10) + 1;
+      }
+    }
+    this.employeeId = `EMP-${String(nextNum).padStart(4, '0')}`;
+  }
+
   if (!this.isModified('password')) {
     return;
   }
+
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
 });

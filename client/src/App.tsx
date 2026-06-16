@@ -31,6 +31,11 @@ import TestimonialsModule from './pages/cms/TestimonialsModule';
 import SiteSettingsModule from './pages/cms/SiteSettingsModule';
 import CustomersList from './pages/crm/CustomersList';
 
+// RBAC & User Management Pages
+import ForceChangePassword from './pages/auth/ForceChangePassword';
+import UserProfile from './pages/profile/UserProfile';
+import EmployeesList from './pages/employees/EmployeesList';
+
 function App() {
   const { isAuthenticated } = useSelector((state: RootState) => state.auth);
 
@@ -51,6 +56,9 @@ function App() {
         {/* Auth Route */}
         <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/admin" />} />
 
+        {/* Force Password Reset Route */}
+        <Route path="/change-password" element={isAuthenticated ? <ForceChangePassword /> : <Navigate to="/login" />} />
+
         {/* Protected Admin Routes */}
         <Route path="/admin" element={isAuthenticated ? <DashboardLayout /> : <Navigate to="/login" />}>
           <Route index element={<Dashboard />} />
@@ -62,6 +70,8 @@ function App() {
           <Route path="quotation-masters" element={<QuotationMasterModule />} />
           <Route path="bookings" element={<BookingsList />} />
           <Route path="expenses" element={<ExpensesList />} />
+          <Route path="employees" element={<EmployeesList />} />
+          <Route path="profile" element={<UserProfile />} />
 
           {/* CMS Submenu Routes */}
           <Route path="cms" element={<CmsHub />} />

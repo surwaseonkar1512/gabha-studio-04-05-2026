@@ -6,17 +6,17 @@ const {
   deleteMaster,
   generateMasterPDF
 } = require('../controllers/quotationMasterController');
-const { protect } = require('../middleware/authMiddleware');
+const { protect, checkPermission } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
 router.route('/')
-  .get(protect, getMasters)
-  .post(protect, createMaster);
+  .get(protect, checkPermission('quotations', 'view'), getMasters)
+  .post(protect, checkPermission('quotations', 'create'), createMaster);
 
 router.route('/:id')
-  .put(protect, updateMaster)
-  .delete(protect, deleteMaster);
+  .put(protect, checkPermission('quotations', 'edit'), updateMaster)
+  .delete(protect, checkPermission('quotations', 'delete'), deleteMaster);
 
 router.route('/:id/pdf').get(generateMasterPDF);
 
