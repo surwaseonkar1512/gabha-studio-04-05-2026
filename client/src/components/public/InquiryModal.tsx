@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import api from '../../api/axiosInstance';
+import toast from 'react-hot-toast';
 
 type InquiryModalProps = {
     isOpen: boolean;
@@ -26,15 +28,37 @@ const InquiryModal = ({ isOpen, onClose, product }: InquiryModalProps) => {
         setLoading(true);
 
         try {
-            // You can wire this to your actual API endpoint
-            console.log('Inquiry submitted:', { ...formData, product: product.name });
-            // Optionally show a success message
-            alert('Inquiry sent successfully!');
+            await api.post('/leads/public', {
+                name: formData.name,
+                email: formData.email,
+                phone: formData.mobile,
+                source: 'Product Inquiry',
+                productName: product?.name || 'Artwork',
+                location: formData.address,
+                notesRequirements: formData.message,
+                customerDetails: {
+                    name: formData.name,
+                    email: formData.email,
+                    phone: formData.mobile
+                },
+                productDetails: {
+                    productName: product?.name || 'Artwork',
+                    productPrice: product?.price || 0,
+                    productImage: product?.image || product?.images?.[0] || '',
+                    category: product?.category || ''
+                },
+                requirementDetails: {
+                    location: formData.address,
+                    notes: formData.message,
+                    quantity: 1
+                }
+            });
+            toast.success('Inquiry sent successfully!');
             setFormData({ name: '', email: '', mobile: '', address: '', message: '' });
             onClose();
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error submitting inquiry:', error);
-            alert('Failed to send inquiry. Please try again.');
+            toast.error(error.response?.data?.message || 'Failed to send inquiry. Please try again.');
         } finally {
             setLoading(false);
         }

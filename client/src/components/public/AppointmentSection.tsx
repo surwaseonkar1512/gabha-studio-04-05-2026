@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import api from "../../api/axiosInstance";
+import toast from "react-hot-toast";
 
 const AppointmentSection: React.FC = () => {
   const [form, setForm] = useState({
@@ -19,21 +20,20 @@ const AppointmentSection: React.FC = () => {
     e.preventDefault();
 
     if (!form.name || !form.phone) {
-      alert("Please fill in your name and phone number.");
+      toast.error("Please fill in your name and phone number.");
       return;
     }
 
     setIsSubmitting(true);
     try {
-      await api.post("/leads/public", {
+      await api.post("/contacts/public", {
         name: form.name,
         email: form.email,
         phone: form.phone,
-        message: `Reason: ${form.reason}\nPreferred Date: ${form.date}`,
-        source: "Website Form",
-        productName: "Appointment Booking",
+        subject: `Appointment Booking: ${form.reason || 'General Inquiry'}`,
+        message: `Preferred Date: ${form.date || 'Not specified'}\nReason: ${form.reason || 'Not specified'}`,
       });
-      alert("Appointment request sent successfully! We will contact you shortly.");
+      toast.success("Contact request sent successfully! We will contact you shortly.");
       setForm({
         name: "",
         email: "",
@@ -43,9 +43,9 @@ const AppointmentSection: React.FC = () => {
       });
     } catch (error: any) {
       console.error("Failed to submit appointment lead", error);
-      alert(
+      toast.error(
         error.response?.data?.message ||
-        "Failed to send appointment request. Please try again.",
+        "Failed to send request. Please try again.",
       );
     } finally {
       setIsSubmitting(false);
@@ -84,10 +84,9 @@ const AppointmentSection: React.FC = () => {
           >
             <div className="space-y-1 text-center lg:text-left">
               <h3 className="text-3xl sm:text-4xl font-fraunces font-semibold text-zinc-900 leading-tight">
-                Book Your Appointment
-              </h3>
+                Contact Us              </h3>
               <p className="text-zinc-600 text-sm font-instrument-sans">
-                Schedule a direct session with our lead artists.
+                We'd love to hear from you! Send us a message and we'll get back to you shortly.
               </p>
             </div>
 
@@ -157,7 +156,7 @@ const AppointmentSection: React.FC = () => {
                 disabled={isSubmitting}
                 className="w-full bg-black hover:bg-zinc-900 text-white font-semibold py-4 rounded-xl shadow-lg transition-colors duration-300 tracking-wider text-base uppercase disabled:bg-zinc-700"
               >
-                {isSubmitting ? "Booking..." : "Book Now"}
+                {isSubmitting ? "Submitting..." : "Submit"}
               </button>
             </div>
           </form>

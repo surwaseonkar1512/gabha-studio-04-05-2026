@@ -21,9 +21,16 @@ const siteSettingsSchema = new mongoose.Schema({
   linkedinUrl: { type: String, default: '' },
   twitterUrl: { type: String, default: '' },
 
-  // Business branding settings
+  // Branding & Payments settings
   ownerSignature: { type: String, default: '' },
   companyStamp: { type: String, default: '' },
+  upiId: { type: String, default: '' },
+  upiQrCode: { type: String, default: '' },
+  bankAccountName: { type: String, default: 'Gabha Studio' },
+  bankName: { type: String, default: 'HDFC Bank' },
+  bankAccountNumber: { type: String, default: '1234 5678 9012' },
+  bankIfscCode: { type: String, default: 'HDFC0001234' },
+  gstNumber: { type: String, default: '' },
 
   // SEO settings
   metaTitle: { type: String, default: '' },

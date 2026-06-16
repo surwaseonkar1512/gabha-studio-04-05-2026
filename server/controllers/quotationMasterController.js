@@ -59,7 +59,7 @@ const updateMaster = async (req, res) => {
     if (items && Array.isArray(items)) {
       master.items = items;
     }
-    
+
     if (gstPercentage !== undefined) {
       master.gstPercentage = gstPercentage;
     }
@@ -99,7 +99,7 @@ const generateMasterPDF = async (req, res) => {
     }
 
     const settings = await SiteSettings.findOne() || {};
-    
+
     let subTotal = 0;
     const items = master.items.map(item => {
       subTotal += item.amount;
@@ -116,7 +116,7 @@ const generateMasterPDF = async (req, res) => {
     const total = subTotal + gstAmt;
 
     const data = {
-      type: 'QUOTATION TEMPLATE',
+      type: 'QUOTATION',
       documentNo: master.name,
       date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }),
       preparedBy: 'Gabha Studio',
@@ -134,6 +134,13 @@ const generateMasterPDF = async (req, res) => {
       logoUrl: settings.websiteLogo,
       signatureUrl: settings.ownerSignature,
       stampUrl: settings.companyStamp,
+      upiId: settings.upiId,
+      upiQrUrl: settings.upiQrCode,
+      bankAccountName: settings.bankAccountName,
+      bankName: settings.bankName,
+      bankAccountNumber: settings.bankAccountNumber,
+      bankIfscCode: settings.bankIfscCode,
+      gstNumber: settings.gstNumber,
     };
 
     const htmlContent = generatePDFHTML(data);

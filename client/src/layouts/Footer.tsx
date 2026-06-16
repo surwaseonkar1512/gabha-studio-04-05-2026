@@ -1,6 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import AppointmentSection from "../components/public/AppointmentSection";
+import api from "../api/axiosInstance";
+import toast from "react-hot-toast";
 
 type Props = {
   navLinks: { name: string; path: string }[];
@@ -18,6 +20,24 @@ type Props = {
 
 const Footer = (props: Props) => {
   const { navLinks, settings } = props;
+  const [email, setEmail] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+    setSubmitting(true);
+    try {
+      await api.post("/newsletter/public", { email, source: "Website Footer" });
+      toast.success("Thank you for subscribing to our newsletter!");
+      setEmail("");
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error.response?.data?.message || "Failed to subscribe. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const socialLinks = [
     {
@@ -66,16 +86,23 @@ const Footer = (props: Props) => {
                 Clayz ceramics bring a soulful charm — every piece feels
                 personal.
               </p>
-              <div className="flex rounded-lg overflow-hidden shadow-sm">
+              <form onSubmit={handleSubscribe} className="flex rounded-lg overflow-hidden shadow-sm">
                 <input
                   type="email"
                   placeholder="Email Address"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
                   className="flex-1 min-w-0 px-4 py-3 text-sm outline-none bg-white text-gray-800 placeholder-gray-400"
                 />
-                <button className="bg-black text-white px-6 py-3 text-sm font-medium hover:bg-gray-900 transition-colors whitespace-nowrap">
-                  Submit
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="bg-black text-white px-6 py-3 text-sm font-medium hover:bg-gray-900 transition-colors whitespace-nowrap disabled:bg-zinc-800"
+                >
+                  {submitting ? "..." : "Submit"}
                 </button>
-              </div>
+              </form>
             </div>
 
             <div className="mt-8">

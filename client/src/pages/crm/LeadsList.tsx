@@ -56,7 +56,8 @@ const LeadsList = () => {
     notesRequirements: '',
     latitude: '' as string | number,
     longitude: '' as string | number,
-    locationType: 'Manual'
+    locationType: 'Manual',
+    priority: 'Medium'
   });
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsSuccess, setGpsSuccess] = useState(false);
@@ -138,6 +139,9 @@ const LeadsList = () => {
   const [quotationNotes, setQuotationNotes] = useState('');
   const [gstEnabled, setGstEnabled] = useState(false);
   const [gstPercentage, setGstPercentage] = useState(18);
+  const [discount, setDiscount] = useState<string | number>('');
+  const [shipping, setShipping] = useState<string | number>('');
+  const [paymentTerms, setPaymentTerms] = useState('');
 
   // Reminders State
   const [newReminder, setNewReminder] = useState({ title: '', description: '', dueDate: '', priority: 'Medium' });
@@ -331,6 +335,9 @@ const LeadsList = () => {
       toast.success('Quotation generated successfully');
       queryClient.invalidateQueries({ queryKey: ['leads'] });
       refetchQuotations();
+      setDiscount('');
+      setShipping('');
+      setPaymentTerms('');
       setIsQuoting(false);
       setQuoteItems([{ description: '', amount: '' }]);
       setGstEnabled(false);
@@ -485,7 +492,10 @@ const LeadsList = () => {
       items: validItems.map(item => ({ ...item, amount: Number(item.amount) })),
       gstEnabled,
       gstPercentage,
-      notes: quotationNotes
+      notes: quotationNotes,
+      discount: Number(discount) || 0,
+      shipping: Number(shipping) || 0,
+      terms: paymentTerms
     });
   };
 
@@ -498,8 +508,11 @@ const LeadsList = () => {
   };
 
   const subTotal = quoteItems.reduce((acc, item) => acc + (Number(item.amount) || 0), 0);
-  const gstAmount = gstEnabled ? subTotal * (gstPercentage / 100) : 0;
-  const grandTotal = subTotal + gstAmount;
+  const discountVal = Number(discount) || 0;
+  const shippingVal = Number(shipping) || 0;
+  const taxableAmount = Math.max(0, subTotal - discountVal);
+  const gstAmount = gstEnabled ? taxableAmount * (gstPercentage / 100) : 0;
+  const grandTotal = taxableAmount + gstAmount + shippingVal;
 
   if (isLoading) return <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>;
   if (error) return <div className="text-red-500">Error loading leads</div>;
@@ -765,8 +778,19 @@ const LeadsList = () => {
                                   className={`mb-3 bg-white dark:bg-zinc-900 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-4 border-t-4 cursor-pointer transition-all ${getStageBorder(lead.stage)} ${snapshot.isDragging ? 'shadow-xl ring-2 ring-amber-500 opacity-90 scale-105' : 'hover:border-gray-300 dark:hover:border-zinc-600 hover:shadow-md'}`}
                                 >
                                   <div className="flex justify-between items-start mb-2">
-                                    <h4 className="font-bold text-gray-900 dark:text-white text-sm">{lead.name}</h4>
-                                    <GripVertical className="text-gray-300 dark:text-zinc-600 h-4 w-4" />
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <h4 className="font-bold text-gray-900 dark:text-white text-sm">{lead.name}</h4>
+                                      {lead.priority && (
+                                        <span className={`px-1.5 py-0.5 text-[9px] font-extrabold uppercase rounded ${
+                                          lead.priority === 'High' ? 'bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-450' :
+                                          lead.priority === 'Medium' ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-455' :
+                                          'bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-450'
+                                        }`}>
+                                          {lead.priority}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <GripVertical className="text-gray-300 dark:text-zinc-600 h-4 w-4 flex-shrink-0" />
                                   </div>
                                   <div className="space-y-1.5 mb-3">
                                     {lead.productName && (
@@ -833,7 +857,18 @@ const LeadsList = () => {
                   {filteredLeads.map((lead) => (
                     <tr key={lead._id} className="hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="font-medium text-gray-900 dark:text-white">{lead.name}</div>
+                        <div className="flex items-center gap-2">
+                          <div className="font-medium text-gray-900 dark:text-white">{lead.name}</div>
+                          {lead.priority && (
+                            <span className={`px-1.5 py-0.5 text-[9px] font-extrabold uppercase rounded ${
+                              lead.priority === 'High' ? 'bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-450' :
+                              lead.priority === 'Medium' ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-455' :
+                              'bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-450'
+                            }`}>
+                              {lead.priority}
+                            </span>
+                          )}
+                        </div>
                         {lead.productName && (
                           <div className="text-xs text-amber-600 dark:text-amber-500 font-semibold">{lead.productName}</div>
                         )}
@@ -975,10 +1010,11 @@ const LeadsList = () => {
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
 
-              {activeTab === 'details' && (
+               {activeTab === 'details' && (
                 <div className="space-y-6">
+                  {/* Contact & Status Information */}
                   <div className="bg-gray-50 dark:bg-zinc-900/50 p-5 rounded-xl border border-gray-100 dark:border-zinc-800">
-                    <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Contact Information</h3>
+                    <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Contact & Status</h3>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Phone Number</p>
@@ -996,19 +1032,98 @@ const LeadsList = () => {
                         <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Date Added</p>
                         <p className="text-sm font-medium text-gray-900 dark:text-white">{new Date(selectedLead.createdAt).toLocaleDateString()}</p>
                       </div>
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Lead Priority</p>
+                        <select
+                          value={selectedLead.priority || 'Medium'}
+                          onChange={(e) => {
+                            editLeadMutation.mutate({ ...selectedLead, priority: e.target.value });
+                          }}
+                          disabled={editLeadMutation.isPending}
+                          className="px-2 py-1 bg-white dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 text-xs rounded font-bold focus:ring-1 focus:ring-amber-500 outline-none text-gray-900 dark:text-white"
+                        >
+                          <option value="Low">Low</option>
+                          <option value="Medium">Medium</option>
+                          <option value="High">High</option>
+                        </select>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Sync Status / Pipeline Stage</p>
+                        <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-bold ${getStageColor(selectedLead.stage)}`}>
+                          {selectedLead.stage}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Product & Location Tracking card */}
+                  {/* Product & Artwork Interest */}
                   <div className="bg-gray-50 dark:bg-zinc-900/50 p-5 rounded-xl border border-gray-100 dark:border-zinc-800">
-                    <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Product & Location Details</h3>
-                    <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Product / Artwork Interest</h3>
+                    
+                    {selectedLead.productDetails && (selectedLead.productDetails.title || selectedLead.productDetails.sku) ? (
+                      <div className="flex gap-4 items-start bg-white dark:bg-zinc-950 p-4 rounded-lg border border-gray-200/60 dark:border-zinc-850">
+                        {selectedLead.productDetails.image && (
+                          <img 
+                            src={selectedLead.productDetails.image} 
+                            alt={selectedLead.productDetails.title} 
+                            className="w-20 h-20 object-cover rounded-lg border border-gray-150 dark:border-zinc-800"
+                          />
+                        )}
+                        <div className="space-y-1">
+                          <h4 className="font-bold text-gray-950 dark:text-white text-sm">
+                            {selectedLead.productDetails.title || selectedLead.productName}
+                          </h4>
+                          {selectedLead.productDetails.sku && (
+                            <p className="text-xs text-gray-500">
+                              <span className="font-semibold">SKU:</span> {selectedLead.productDetails.sku}
+                            </p>
+                          )}
+                          {selectedLead.productDetails.price !== undefined && (
+                            <p className="text-sm font-bold text-amber-600 dark:text-amber-500">
+                              ₹{Number(selectedLead.productDetails.price).toLocaleString('en-IN')}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
                       <div>
                         <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Product/Service Interest</p>
                         <span className="inline-block px-3 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 font-bold rounded-lg text-xs uppercase tracking-wide">
-                          {selectedLead.productName || 'General Service'}
+                          {selectedLead.productName || 'General Inquiry'}
                         </span>
                       </div>
+                    )}
+                  </div>
+
+                  {/* Lead Specific Requirements */}
+                  <div className="bg-gray-50 dark:bg-zinc-900/50 p-5 rounded-xl border border-gray-100 dark:border-zinc-800">
+                    <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Specific Requirements</h3>
+                    <div className="grid grid-cols-3 gap-4 mb-4">
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Quantity Requested</p>
+                        <p className="text-sm font-bold text-gray-900 dark:text-white">
+                          {selectedLead.requirementDetails?.quantity || 1} units
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Color Preference</p>
+                        <p className="text-sm font-bold text-gray-900 dark:text-white">
+                          {selectedLead.requirementDetails?.colorPreference || 'Any / Default'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Target Delivery Date</p>
+                        <p className="text-sm font-bold text-gray-950 dark:text-white">
+                          {selectedLead.requirementDetails?.preferredDeliveryDate 
+                            ? new Date(selectedLead.requirementDetails.preferredDeliveryDate).toLocaleDateString('en-IN', {
+                                day: '2-digit', month: 'short', year: 'numeric'
+                              })
+                            : 'Not Specified'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4 pt-3 border-t border-gray-200/50 dark:border-zinc-850">
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Location/City</p>
@@ -1405,21 +1520,69 @@ const LeadsList = () => {
                         </button>
                       </div>
 
-                      <div className="bg-gray-100 dark:bg-zinc-900 p-5 rounded-xl space-y-3 mb-8">
+                      <div className="grid grid-cols-2 gap-4 mb-6">
+                        <div>
+                          <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Discount (₹)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder="0"
+                            value={discount}
+                            onChange={e => setDiscount(e.target.value)}
+                            className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-gray-900 dark:text-white text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Shipping / Delivery (₹)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder="0"
+                            value={shipping}
+                            onChange={e => setShipping(e.target.value)}
+                            className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-gray-900 dark:text-white text-sm"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="bg-gray-100 dark:bg-zinc-900 p-5 rounded-xl space-y-3 mb-6">
                         <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
                           <span>Subtotal</span>
                           <span className="font-medium text-gray-900 dark:text-white">₹{subTotal.toLocaleString('en-IN')}</span>
                         </div>
+                        {Number(discount) > 0 && (
+                          <div className="flex justify-between text-sm text-red-600 dark:text-red-400 font-medium">
+                            <span>Discount</span>
+                            <span>-₹{Number(discount).toLocaleString('en-IN')}</span>
+                          </div>
+                        )}
                         {gstEnabled && (
                           <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
                             <span>GST ({gstPercentage}%)</span>
                             <span className="font-medium text-gray-900 dark:text-white">₹{gstAmount.toLocaleString('en-IN')}</span>
                           </div>
                         )}
+                        {Number(shipping) > 0 && (
+                          <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
+                            <span>Shipping / Delivery</span>
+                            <span className="font-medium text-gray-900 dark:text-white">₹{Number(shipping).toLocaleString('en-IN')}</span>
+                          </div>
+                        )}
                         <div className="pt-3 border-t border-gray-200 dark:border-zinc-800 flex justify-between items-center">
                           <span className="font-bold text-gray-900 dark:text-white">Grand Total</span>
                           <span className="text-xl font-bold text-amber-600 dark:text-amber-500">₹{grandTotal.toLocaleString('en-IN')}</span>
                         </div>
+                      </div>
+
+                      <div className="bg-gray-50 dark:bg-zinc-900/50 p-5 rounded-xl border border-gray-100 dark:border-zinc-800 mb-6">
+                        <label className="block text-sm font-bold text-gray-900 dark:text-white mb-2 uppercase tracking-wider">Payment & Delivery Terms</label>
+                        <input
+                          type="text"
+                          value={paymentTerms}
+                          onChange={e => setPaymentTerms(e.target.value)}
+                          className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-sm text-gray-900 dark:text-white"
+                          placeholder="e.g. 50% advance, 50% on delivery. Dispatch within 7 days."
+                        />
                       </div>
 
                       <div className="bg-gray-50 dark:bg-zinc-900/50 p-5 rounded-xl border border-gray-100 dark:border-zinc-800 mb-8">
@@ -1512,6 +1675,18 @@ const LeadsList = () => {
                   className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-gray-900 dark:text-white"
                   placeholder="e.g. Fine Art Portrait"
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Priority</label>
+                <select
+                  value={newLeadData.priority || 'Medium'}
+                  onChange={e => setNewLeadData({ ...newLeadData, priority: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-gray-905 dark:text-white"
+                >
+                  <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Customer Location (City/Area)</label>
@@ -1854,6 +2029,18 @@ const LeadsList = () => {
                   onChange={e => setEditLeadData({ ...editLeadData, productName: e.target.value })}
                   className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-gray-900 dark:text-white"
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Priority</label>
+                <select
+                  value={editLeadData.priority || 'Medium'}
+                  onChange={e => setEditLeadData({ ...editLeadData, priority: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-gray-905 dark:text-white"
+                >
+                  <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Customer Location (City/Area)</label>

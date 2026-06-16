@@ -32,6 +32,13 @@ const SiteSettingsModule = () => {
   // Branding Settings
   const [ownerSignature, setOwnerSignature] = useState('');
   const [companyStamp, setCompanyStamp] = useState('');
+  const [upiId, setUpiId] = useState('');
+  const [upiQrCode, setUpiQrCode] = useState('');
+  const [bankAccountName, setBankAccountName] = useState('');
+  const [bankName, setBankName] = useState('');
+  const [bankAccountNumber, setBankAccountNumber] = useState('');
+  const [bankIfscCode, setBankIfscCode] = useState('');
+  const [gstNumber, setGstNumber] = useState('');
 
   // SEO Settings
   const [metaTitle, setMetaTitle] = useState('');
@@ -67,6 +74,13 @@ const SiteSettingsModule = () => {
 
         setOwnerSignature(data.ownerSignature || '');
         setCompanyStamp(data.companyStamp || '');
+        setUpiId(data.upiId || '');
+        setUpiQrCode(data.upiQrCode || '');
+        setBankAccountName(data.bankAccountName || '');
+        setBankName(data.bankName || '');
+        setBankAccountNumber(data.bankAccountNumber || '');
+        setBankIfscCode(data.bankIfscCode || '');
+        setGstNumber(data.gstNumber || '');
 
         setMetaTitle(data.metaTitle || '');
         setMetaDescription(data.metaDescription || '');
@@ -109,6 +123,13 @@ const SiteSettingsModule = () => {
       twitterUrl,
       ownerSignature,
       companyStamp,
+      upiId,
+      upiQrCode,
+      bankAccountName,
+      bankName,
+      bankAccountNumber,
+      bankIfscCode,
+      gstNumber,
       metaTitle,
       metaDescription,
       metaKeywords,
@@ -140,7 +161,7 @@ const SiteSettingsModule = () => {
     { id: 'general', name: 'General Settings', icon: <Globe size={16} /> },
     { id: 'contact', name: 'Contact Details', icon: <Phone size={16} /> },
     { id: 'socials', name: 'Social URLs', icon: <Share2 size={16} /> },
-    { id: 'branding', name: 'Branding Logos', icon: <Award size={16} /> },
+    { id: 'branding', name: 'Branding & Payments', icon: <Award size={16} /> },
     { id: 'seo', name: 'SEO Metadata', icon: <Search size={16} /> },
     { id: 'additional', name: 'Additional Configs', icon: <FileText size={16} /> }
   ] as const;
@@ -371,6 +392,103 @@ const SiteSettingsModule = () => {
                     placeholder="Upload dedicated footer logo"
                     aspectRatio="aspect-video"
                   />
+                </div>
+
+                <div className="space-y-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-zinc-300">UPI Payment Settings</h4>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-zinc-300 mb-1.5">
+                      UPI ID
+                    </label>
+                    <input
+                      type="text"
+                      value={upiId}
+                      onChange={(e) => setUpiId(e.target.value)}
+                      placeholder="e.g. gabhastudio@hdfc"
+                      className="w-full px-4 py-2.5 bg-gray-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 focus:outline-none focus:border-amber-500 rounded-xl text-sm"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <ImageUpload
+                      label="UPI QR Code Image"
+                      value={upiQrCode}
+                      onChange={setUpiQrCode}
+                      placeholder="Upload UPI QR Code (PNG/JPG)"
+                      aspectRatio="aspect-square"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-zinc-300">Official Bank &amp; GST Details</h4>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-zinc-300 mb-1.5">
+                        Account Holder / Name
+                      </label>
+                      <input
+                        type="text"
+                        value={bankAccountName}
+                        onChange={(e) => setBankAccountName(e.target.value)}
+                        placeholder="e.g. Gabha Studio"
+                        className="w-full px-4 py-2.5 bg-gray-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 focus:outline-none focus:border-amber-500 rounded-xl text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-zinc-300 mb-1.5">
+                        Bank Name
+                      </label>
+                      <input
+                        type="text"
+                        value={bankName}
+                        onChange={(e) => setBankName(e.target.value)}
+                        placeholder="e.g. HDFC Bank"
+                        className="w-full px-4 py-2.5 bg-gray-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 focus:outline-none focus:border-amber-500 rounded-xl text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-zinc-300 mb-1.5">
+                        Account Number
+                      </label>
+                      <input
+                        type="text"
+                        value={bankAccountNumber}
+                        onChange={(e) => setBankAccountNumber(e.target.value)}
+                        placeholder="e.g. 1234 5678 9012"
+                        className="w-full px-4 py-2.5 bg-gray-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 focus:outline-none focus:border-amber-500 rounded-xl text-sm font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-zinc-300 mb-1.5">
+                        IFSC Code
+                      </label>
+                      <input
+                        type="text"
+                        value={bankIfscCode}
+                        onChange={(e) => setBankIfscCode(e.target.value)}
+                        placeholder="e.g. HDFC0001234"
+                        className="w-full px-4 py-2.5 bg-gray-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 focus:outline-none focus:border-amber-500 rounded-xl text-sm font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-zinc-300 mb-1.5">
+                      GSTIN (GST Number)
+                    </label>
+                    <input
+                      type="text"
+                      value={gstNumber}
+                      onChange={(e) => setGstNumber(e.target.value)}
+                      placeholder="e.g. 27AAAAA1111A1Z1"
+                      className="w-full px-4 py-2.5 bg-gray-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 focus:outline-none focus:border-amber-500 rounded-xl text-sm font-mono"
+                    />
+                  </div>
                 </div>
               </div>
             )}

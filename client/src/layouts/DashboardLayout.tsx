@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, CreditCard, Layers, User, LogOut, Sun, Moon, Bell, Check, CheckCheck, UserPlus, Info, AlertCircle, Calendar, FileText, Copy, Image, Settings, Palette } from 'lucide-react';
+import { LayoutDashboard, Users, CreditCard, Layers, User, LogOut, Sun, Moon, Bell, Check, CheckCheck, UserPlus, Info, AlertCircle, Calendar, FileText, Copy, Image, Settings, Palette, Mail } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../store/authSlice';
 import { useTheme } from '../context/ThemeContext';
@@ -65,10 +65,21 @@ const DashboardLayout = () => {
     fetchNotifications();
 
     // Connect to Socket.io server
-    const socket = io('https://gabha-studio-04-05-2026.onrender.com');
+    const socketUrl = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+      ? "http://localhost:5000"
+      : "https://gabha-studio-04-05-2026.onrender.com";
+    const socket = io(socketUrl);
+
+    const playSound = () => {
+      try {
+        const audio = new Audio('/notification.mp3');
+        audio.play().catch(e => console.log('Audio autoplay prevented by browser', e));
+      } catch (e) {
+        console.error('Failed to play audio', e);
+      }
+    };
 
     socket.on('new_lead', (lead) => {
-      // Optimistically add notification or refetch
       const newNotif: NotificationItem = {
         _id: Math.random().toString(36).substr(2, 9),
         title: 'New Lead Received!',
@@ -79,20 +90,59 @@ const DashboardLayout = () => {
       };
 
       setNotifications((prev) => [newNotif, ...prev]);
-
-      // Play audio notification
-      try {
-        const audio = new Audio('/notification.mp3');
-        audio.play().catch(e => console.log('Audio autoplay prevented by browser', e));
-      } catch (e) {
-        console.error('Failed to play audio', e);
-      }
+      playSound();
 
       toast.success(
         <div>
           <strong>New Lead Received!</strong>
           <br />
           {lead.name} just sent an inquiry.
+        </div>,
+        { duration: 5000, position: 'top-right' }
+      );
+    });
+
+    socket.on('new_contact_inquiry', (contact) => {
+      const newNotif: NotificationItem = {
+        _id: Math.random().toString(36).substr(2, 9),
+        title: 'New Contact Us Inquiry!',
+        message: `${contact.name} sent a message: "${contact.subject || 'General Inquiry'}"`,
+        type: 'system',
+        isRead: false,
+        createdAt: new Date().toISOString()
+      };
+
+      setNotifications((prev) => [newNotif, ...prev]);
+      playSound();
+
+      toast.success(
+        <div>
+          <strong>New Contact Inquiry!</strong>
+          <br />
+          {contact.name} has sent a message.
+        </div>,
+        { duration: 5000, position: 'top-right' }
+      );
+    });
+
+    socket.on('new_subscriber', (sub) => {
+      const newNotif: NotificationItem = {
+        _id: Math.random().toString(36).substr(2, 9),
+        title: 'New Subscriber!',
+        message: `${sub.email} subscribed to newsletter.`,
+        type: 'system',
+        isRead: false,
+        createdAt: new Date().toISOString()
+      };
+
+      setNotifications((prev) => [newNotif, ...prev]);
+      playSound();
+
+      toast.success(
+        <div>
+          <strong>New Subscriber!</strong>
+          <br />
+          {sub.email} has subscribed.
         </div>,
         { duration: 5000, position: 'top-right' }
       );
@@ -155,8 +205,12 @@ const DashboardLayout = () => {
 
   const crmItems = [
     { name: 'Dashboard', path: '/admin', icon: <LayoutDashboard size={18} /> },
-    { name: 'Leads Pipeline', path: '/admin/crm', icon: <Users size={18} /> },
-    { name: 'Quotation Masters', path: '/admin/quotation-masters', icon: <Copy size={18} /> },
+    { name: 'Leads', path: '/admin/crm', icon: <Users size={18} /> },
+    { name: 'Contact Us', path: '/admin/contacts', icon: <Mail size={18} /> },
+    { name: 'Newsletter Subscribers', path: '/admin/newsletter', icon: <FileText size={18} /> },
+    { name: 'Quotations', path: '/admin/quotations', icon: <FileText size={18} /> },
+    { name: 'Products', path: '/admin/cms/products', icon: <Layers size={18} /> },
+    { name: 'Customers', path: '/admin/customers', icon: <Users size={18} /> },
     { name: 'Bookings', path: '/admin/bookings', icon: <Calendar size={18} /> },
     { name: 'Expenses', path: '/admin/expenses', icon: <CreditCard size={18} /> },
   ];
@@ -166,7 +220,6 @@ const DashboardLayout = () => {
     { name: 'About Us', path: '/admin/cms/about', icon: <Info size={18} /> },
     { name: 'Gallery', path: '/admin/cms/gallery', icon: <Image size={18} /> },
     { name: 'Categories', path: '/admin/cms/categories', icon: <Palette size={18} /> },
-    { name: 'Products', path: '/admin/cms/products', icon: <CreditCard size={18} /> },
     { name: 'Instagram Gallery', path: '/admin/cms/instagram', icon: <FileText size={18} /> },
     { name: 'Testimonials', path: '/admin/cms/testimonials', icon: <FileText size={18} /> },
     { name: 'Site Settings', path: '/admin/cms/settings', icon: <Settings size={18} /> },

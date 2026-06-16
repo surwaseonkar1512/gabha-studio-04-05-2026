@@ -59,6 +59,8 @@ app.use('/api/bookings', require('./routes/bookingRoutes'));
 app.use('/api/expenses', require('./routes/expenseRoutes'));
 app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 app.use('/api/cms', require('./routes/cmsRoutes'));
+app.use('/api/newsletter', require('./routes/newsletterRoutes'));
+app.use('/api/contacts', require('./routes/contactRoutes'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {

@@ -208,6 +208,13 @@ const generateInvoicePDF = async (req, res) => {
       logoUrl: settings.websiteLogo,
       signatureUrl: settings.ownerSignature,
       stampUrl: settings.companyStamp,
+      upiId: settings.upiId,
+      upiQrUrl: settings.upiQrCode,
+      bankAccountName: settings.bankAccountName,
+      bankName: settings.bankName,
+      bankAccountNumber: settings.bankAccountNumber,
+      bankIfscCode: settings.bankIfscCode,
+      gstNumber: settings.gstNumber,
     };
 
     const htmlContent = generatePDFHTML(data);
