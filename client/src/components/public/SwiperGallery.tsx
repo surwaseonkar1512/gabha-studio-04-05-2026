@@ -1,33 +1,35 @@
-import { useRef } from 'react';
-import { Swiper, SwiperSlide } from 'swiper/react';
-import { Autoplay } from 'swiper/modules';
-import type { Swiper as SwiperType } from 'swiper';
-import 'swiper/css';
+import { useRef } from "react";
+import { Swiper, SwiperSlide } from "swiper/react";
+import { Autoplay } from "swiper/modules";
+import type { Swiper as SwiperType } from "swiper";
+import "swiper/css";
 
 type SwiperGalleryProps = {
-    galleries: any[];
-    activeGalleryTab: string;
-    setActiveGalleryTab: (value: string) => void;
+  galleries: any[];
+  activeGalleryTab: string;
+  setActiveGalleryTab: (value: string) => void;
 };
 
-const SwiperGallery = ({ galleries, activeGalleryTab, setActiveGalleryTab }: SwiperGalleryProps) => {
-    const swiperRef = useRef<SwiperType | null>(null);
-    const activeGallery = galleries.find((gallery) => gallery._id === activeGalleryTab);
+const SwiperGallery = ({
+  galleries,
+  activeGalleryTab,
+  setActiveGalleryTab,
+}: SwiperGalleryProps) => {
+  const swiperRef = useRef<SwiperType | null>(null);
+  const activeGallery = galleries.find(
+    (gallery) => gallery._id === activeGalleryTab,
+  );
 
-    if (galleries.length === 0 || !activeGallery) return null;
+  if (galleries.length === 0 || !activeGallery) return null;
 
-    const images = activeGallery.images ?? [];
-    const loopImages = images.length < 10
-        ? [...images, ...images, ...images]
-        : images;
+  const images = activeGallery.images ?? [];
+  const loopImages =
+    images.length < 10 ? [...images, ...images, ...images] : images;
 
-    return (
-        <section className="py-24 bg-zinc-50 border-t border-zinc-100">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-
-
-
-                <style>{`
+  return (
+    <section className="py-24 bg-zinc-50 border-t border-zinc-100">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <style>{`
                     .gallery-swiper {
                         padding: 40px 0 20px !important;
                         overflow: hidden !important;
@@ -48,7 +50,7 @@ const SwiperGallery = ({ galleries, activeGalleryTab, setActiveGalleryTab }: Swi
                         border-radius: 2rem;
                         overflow: hidden;
                         border: 1.5px solid rgba(255,255,255,0.4);
-                        box-shadow: 0 8px 32px rgba(0,0,0,0.14);
+                        // box-shadow: 0 8px 32px rgba(0,0,0,0.14);
                         transition:
                             transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94),
                             box-shadow 0.5s ease,
@@ -56,7 +58,7 @@ const SwiperGallery = ({ galleries, activeGalleryTab, setActiveGalleryTab }: Swi
                     }
                     .gallery-swiper .swiper-slide-active .slide-inner {
                         transform: rotate(0deg) translateY(0px) scale(1.0);
-                        box-shadow: 0 20px 60px rgba(0,0,0,0.22);
+                        // box-shadow: 0 20px 60px rgba(0,0,0,0.22);
                         opacity: 1;
                     }
                     .gallery-swiper .swiper-slide-prev .slide-inner {
@@ -147,69 +149,60 @@ const SwiperGallery = ({ galleries, activeGalleryTab, setActiveGalleryTab }: Swi
                     }
                 `}</style>
 
-                {/* Swiper */}
-                <Swiper
-                    modules={[Autoplay]}
-                    slidesPerView={5}
-                    centeredSlides
-                    spaceBetween={24}
-                    autoplay={{ delay: 4000, disableOnInteraction: false }}
-                    speed={500}
-                    loop
-                    loopAdditionalSlides={5}
-                    watchSlidesProgress
-                    onSwiper={(swiper: any) => {
-                        swiperRef.current = swiper;
-                        setTimeout(() => {
-                            swiper.loopFix();
-                            swiper.autoplay.start();
-                        }, 100);
-                    }}
-                    className="gallery-swiper"
-                >
-                    {loopImages.map((image: any, index: number) => (
-                        <SwiperSlide key={`${image.url}-${index}`}>
-                            <div className="slide-inner">
-                                <img
-                                    src={image.url}
-                                    alt={`Gallery ${index + 1}`}
-                                    className="w-full h-[300px] object-cover"
-                                />
-                            </div>
-                        </SwiperSlide>
-                    ))}
-                </Swiper>
+        {/* Swiper */}
+        <Swiper
+          modules={[Autoplay]}
+          slidesPerView={5}
+          centeredSlides
+          spaceBetween={24}
+          autoplay={{ delay: 4000, disableOnInteraction: false }}
+          speed={500}
+          loop
+          loopAdditionalSlides={5}
+          watchSlidesProgress
+          onSwiper={(swiper: any) => {
+            swiperRef.current = swiper;
+            setTimeout(() => {
+              swiper.loopFix();
+              swiper.autoplay.start();
+            }, 100);
+          }}
+          className="gallery-swiper"
+        >
+          {loopImages.map((image: any, index: number) => (
+            <SwiperSlide key={`${image.url}-${index}`}>
+              <div className="slide-inner">
+                <img
+                  src={image.url}
+                  alt={`Gallery ${index + 1}`}
+                  className="w-full h-[300px] sm:h-[400px] object-cover"
+                />
+              </div>
+            </SwiperSlide>
+          ))}
+        </Swiper>
 
-                {/* Static Tagline Section */}
-                <div className="w-full">
-                    <div className="relative">
-
-                        {/* inline sculpture image — replace src with your actual asset */}
-                        <div className="absolute -top-20 left-0 transform -translate-x-1/2">
-                            <img src="/sideroundPng.png" alt="clay figures" />
-                        </div>
-
-                    </div>
-
-                    <div className="">
-
-                        {/* inline sculpture image — replace src with your actual asset */}
-                        <div className="h-auto">
-                            <img src="/gallarybelowimage.png" alt="clay figures" />
-                        </div>
-
-                    </div>
-
-
-                </div>
-
-
-
-                {/* </div> */}
-
+        {/* Static Tagline Section */}
+        <div className="w-full">
+          <div className="relative">
+            {/* inline sculpture image — replace src with your actual asset */}
+            <div className="absolute -top-20 left-0 transform -translate-x-1/2">
+              <img src="/sideroundPng.png" alt="clay figures" />
             </div>
-        </section>
-    );
+          </div>
+
+          <div className="">
+            {/* inline sculpture image — replace src with your actual asset */}
+            <div className="h-auto">
+              <img src="/gallarybelowimage.png" alt="clay figures" />
+            </div>
+          </div>
+        </div>
+
+        {/* </div> */}
+      </div>
+    </section>
+  );
 };
 
 export default SwiperGallery;

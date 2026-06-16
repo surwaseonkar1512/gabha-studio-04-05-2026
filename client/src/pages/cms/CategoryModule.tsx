@@ -103,7 +103,7 @@ const CategoryModule = () => {
 
   const openEditModal = (category: Category) => {
     setEditingCategory(category);
-    
+
     // Support either old string categoryImage or new object format
     const imgUrl = typeof category.categoryImage === 'object'
       ? category.categoryImage?.secure_url || ''
@@ -324,7 +324,7 @@ const CategoryModule = () => {
                               </div>
                               <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1 flex items-center gap-2">
                                 Slug: <span className="font-mono bg-zinc-50 dark:bg-zinc-950 px-1 py-0.5 rounded text-amber-600 dark:text-amber-500">/{category.slug}</span>
-                                {category.seoTitle && <Globe size={12} className="text-emerald-500" title="SEO optimized" />}
+                                {category.seoTitle && <Globe size={12} className="text-emerald-500" />}
                               </p>
                             </div>
 
@@ -364,7 +364,7 @@ const CategoryModule = () => {
                       </Draggable>
                     );
                   })}
-                    {provided.placeholder}
+                  {provided.placeholder}
                 </div>
               )}
             </Droppable>

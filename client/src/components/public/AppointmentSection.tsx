@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import api from "../../api/axiosInstance";
 
 const AppointmentSection: React.FC = () => {
   const [form, setForm] = useState({
@@ -8,85 +9,155 @@ const AppointmentSection: React.FC = () => {
     reason: "",
     date: "",
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => setForm((s) => ({ ...s, [e.target.name]: e.target.value }));
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Placeholder: hook this to your API
-    console.log("book appointment", form);
-    alert("Appointment request sent — we will contact you shortly.");
+
+    if (!form.name || !form.phone) {
+      alert("Please fill in your name and phone number.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await api.post("/leads/public", {
+        name: form.name,
+        email: form.email,
+        phone: form.phone,
+        message: `Reason: ${form.reason}\nPreferred Date: ${form.date}`,
+        source: "Website Form",
+        productName: "Appointment Booking",
+      });
+      alert("Appointment request sent successfully! We will contact you shortly.");
+      setForm({
+        name: "",
+        email: "",
+        phone: "",
+        reason: "",
+        date: "",
+      });
+    } catch (error: any) {
+      console.error("Failed to submit appointment lead", error);
+      alert(
+        error.response?.data?.message ||
+          "Failed to send appointment request. Please try again.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    <section className="max-w-6xl mx-auto my-12 px-4 sm:px-6 lg:px-8">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 bg-white rounded-lg overflow-hidden shadow-lg">
-        {/* Left: background image */}
-        <div
-          className="h-80 lg:h-auto bg-center bg-cover"
-          style={{ backgroundImage: "url('/bookapointment.png')" }}
-          aria-hidden
-        />
+    <section className="max-w-[1400px] mx-auto my-24 px-6" id="project">
+      <div className="relative w-full rounded-[40px] overflow-hidden shadow-2xl bg-zinc-950 flex flex-col lg:flex-row">
+        {/* Left Side: Crisp Image */}
+        <div className="w-full lg:w-1/2 min-h-[350px] lg:min-h-[550px] relative">
+          <img
+            src="/appointment_sculpting.png"
+            alt="Artist sculpting clay face close up"
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/20 to-black/10"></div>
+        </div>
 
-        {/* Right: form */}
-        <div className="p-8 md:p-12 flex items-center">
-          <form className="w-full" onSubmit={handleSubmit}>
-            <h3 className="text-2xl sm:text-3xl font-fraunces mb-2">
-              Book Your Appointment
-            </h3>
-            <p className="text-sm text-gray-600 mb-6">
-              Choose a convenient time and we’ll get back to you.
-            </p>
+        {/* Right Side: Form on blurred image overlay */}
+        <div className="w-full lg:w-1/2 relative min-h-[450px] lg:min-h-[550px] flex items-center justify-center p-8 md:p-16">
+          {/* Blurred background image layer */}
+          <div className="absolute inset-0 z-0">
+            <img
+              src="/appointment_sculpting.png"
+              alt="Sculpting background blurred"
+              className="w-full h-full object-cover blur-md scale-105"
+            />
+            <div className="absolute inset-0 bg-zinc-100/70 backdrop-blur-md"></div>
+          </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <input
-                name="name"
-                value={form.name}
-                onChange={handleChange}
-                placeholder="Enter Full Name"
-                className="px-4 py-3 border rounded bg-gray-50"
-              />
-              <input
-                name="email"
-                value={form.email}
-                onChange={handleChange}
-                placeholder="Email Address"
-                className="px-4 py-3 border rounded bg-gray-50"
-              />
-              <input
-                name="phone"
-                value={form.phone}
-                onChange={handleChange}
-                placeholder="Phone Number"
-                className="px-4 py-3 border rounded bg-gray-50"
-              />
-              <input
-                name="date"
-                value={form.date}
-                onChange={handleChange}
-                placeholder="dd-mm-yy"
-                className="px-4 py-3 border rounded bg-gray-50"
-              />
+          {/* Form content (on top of blur) */}
+          <form
+            onSubmit={handleSubmit}
+            className="w-full max-w-[480px] relative z-10 space-y-6"
+          >
+            <div className="space-y-1 text-center lg:text-left">
+              <h3 className="text-3xl sm:text-4xl font-fraunces font-semibold text-zinc-900 leading-tight">
+                Book Your Appointment
+              </h3>
+              <p className="text-zinc-600 text-sm font-instrument-sans">
+                Schedule a direct session with our lead artists.
+              </p>
             </div>
 
-            <div className="mt-3">
-              <input
-                name="reason"
-                value={form.reason}
-                onChange={handleChange}
-                placeholder="Reason"
-                className="w-full px-4 py-3 border rounded bg-gray-50"
-              />
+            <div className="space-y-4">
+              {/* Name input */}
+              <div>
+                <input
+                  type="text"
+                  name="name"
+                  value={form.name}
+                  onChange={handleChange}
+                  placeholder="Enter Full Name"
+                  required
+                  className="w-full px-5 py-3.5 bg-white text-zinc-900 rounded-xl border border-zinc-200/80 focus:outline-none focus:ring-2 focus:ring-[#1e606b] shadow-sm text-base placeholder-zinc-400"
+                />
+              </div>
+
+              {/* Email and Phone */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <input
+                  type="email"
+                  name="email"
+                  value={form.email}
+                  onChange={handleChange}
+                  placeholder="Email Address"
+                  className="w-full px-5 py-3.5 bg-white text-zinc-900 rounded-xl border border-zinc-200/80 focus:outline-none focus:ring-2 focus:ring-[#1e606b] shadow-sm text-base placeholder-zinc-400"
+                />
+                <input
+                  type="tel"
+                  name="phone"
+                  value={form.phone}
+                  onChange={handleChange}
+                  placeholder="Phone Number"
+                  required
+                  className="w-full px-5 py-3.5 bg-white text-zinc-900 rounded-xl border border-zinc-200/80 focus:outline-none focus:ring-2 focus:ring-[#1e606b] shadow-sm text-base placeholder-zinc-400"
+                />
+              </div>
+
+              {/* Reason and Date */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <input
+                  type="text"
+                  name="reason"
+                  value={form.reason}
+                  onChange={handleChange}
+                  placeholder="Reason"
+                  className="w-full px-5 py-3.5 bg-white text-zinc-900 rounded-xl border border-zinc-200/80 focus:outline-none focus:ring-2 focus:ring-[#1e606b] shadow-sm text-base placeholder-zinc-400"
+                />
+                <input
+                  type="text"
+                  name="date"
+                  value={form.date}
+                  onChange={handleChange}
+                  placeholder="dd-mm-yy"
+                  onFocus={(e) => (e.target.type = "date")}
+                  onBlur={(e) => {
+                    if (!e.target.value) e.target.type = "text";
+                  }}
+                  className="w-full px-5 py-3.5 bg-white text-zinc-900 rounded-xl border border-zinc-200/80 focus:outline-none focus:ring-2 focus:ring-[#1e606b] shadow-sm text-base placeholder-zinc-400"
+                />
+              </div>
             </div>
 
-            <div className="mt-6">
+            <div>
               <button
                 type="submit"
-                className="w-full bg-black text-white px-6 py-3 font-medium rounded"
+                disabled={isSubmitting}
+                className="w-full bg-black hover:bg-zinc-900 text-white font-semibold py-4 rounded-xl shadow-lg transition-colors duration-300 tracking-wider text-base uppercase disabled:bg-zinc-700"
               >
-                Book Now
+                {isSubmitting ? "Booking..." : "Book Now"}
               </button>
             </div>
           </form>

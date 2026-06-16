@@ -49,7 +49,7 @@ const HomeBanner = ({ banners, currentSlide, setCurrentSlide }: HomeBannerProps)
     }, [settings]);
 
     return (
-        <section className="relative h-screen bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,.08),transparent_22%),linear-gradient(180deg,#0a1a2e_0%,#07111f_52%,#02060e_100%)] overflow-hidden text-white">
+        <section className="relative h-screen bg-zinc-950 overflow-hidden text-white">
 
             {banners.length > 0 ? (
                 <div className="absolute inset-0 w-full h-full">
@@ -63,28 +63,47 @@ const HomeBanner = ({ banners, currentSlide, setCurrentSlide }: HomeBannerProps)
                                     <source media="(max-width: 640px)" srcSet={banner.mobileBannerImage} />
                                 )}
                                 <img
-                                    src={banner.bannerImage}
+                                    src={banner.bannerImage && !banner.bannerImage.includes('default') ? banner.bannerImage : '/sculpture_banner_bg.png'}
                                     alt={banner.title}
-                                    className="w-full h-full object-cover mix-blend-luminosity opacity-40"
+                                    className="w-full h-full object-cover"
                                 />
                             </picture>
-                            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent"></div>
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/10"></div>
 
                             <div className="absolute inset-0 flex items-center justify-center text-center px-6">
                                 <div className="relative mx-auto max-w-5xl">
-                                    {/* <div className="mb-6 opacity-80 text-xs uppercase tracking-[0.35em] text-[#DDE8F4]">
-                                        {banner.subtitle || 'Luxury Sculpture Studio'}
-                                    </div> */}
-                                    <h1 className="font-fraunces text-outline text-[clamp(90px,10vw,170px)] leading-[0.9] uppercase tracking-[-0.01em] drop-shadow-[0_24px_45px_rgba(0,0,0,0.25)]"
-                                        style={{ WebkitTextStroke: '1.5px rgba(255,255,255,0.95)', mixBlendMode: 'screen' }}
-                                    >
-                                        {banner.title || 'Timeless Sculptures'}
-                                    </h1>
-                                    {/* {banner.description && (
-                                        <p className="mt-6 text-sm sm:text-base text-white/70 max-w-3xl mx-auto leading-relaxed opacity-90">
-                                            {banner.description}
-                                        </p>
-                                    )} */}
+                                    {banner.title === 'Timeless Sculptures' || !banner.title ? (
+                                        <h1 className="font-fraunces text-[clamp(65px,7vw,120px)] md:text-[clamp(90px,10vw,170px)] leading-[0.9] uppercase tracking-[-0.01em] drop-shadow-[0_12px_24px_rgba(0,0,0,0.25)] flex flex-col md:flex-row items-center justify-center gap-x-6">
+                                            <span className="flex">
+                                                <span className="text-white">T</span>
+                                                <span className="text-white">i</span>
+                                                <span className="text-white">m</span>
+                                                <span className="text-outline">e</span>
+                                                <span className="text-outline">l</span>
+                                                <span className="text-outline">e</span>
+                                                <span className="text-outline">s</span>
+                                                <span className="text-outline">s</span>
+                                            </span>
+                                            <span className="flex">
+                                                <span className="text-outline">S</span>
+                                                <span className="text-outline">c</span>
+                                                <span className="text-outline">u</span>
+                                                <span className="text-outline">l</span>
+                                                <span className="text-white">p</span>
+                                                <span className="text-white">t</span>
+                                                <span className="text-white">u</span>
+                                                <span className="text-outline">r</span>
+                                                <span className="text-outline">e</span>
+                                                <span className="text-outline">s</span>
+                                            </span>
+                                        </h1>
+                                    ) : (
+                                        <h1 className="font-fraunces text-outline text-[clamp(90px,10vw,170px)] leading-[0.9] uppercase tracking-[-0.01em] drop-shadow-[0_24px_45px_rgba(0,0,0,0.25)]"
+                                            style={{ WebkitTextStroke: '1.5px rgba(255,255,255,0.95)', mixBlendMode: 'screen' }}
+                                        >
+                                            {banner.title}
+                                        </h1>
+                                    )}
                                     {banner.ctaText && (
                                         <div className="mt-8">
                                             <Link

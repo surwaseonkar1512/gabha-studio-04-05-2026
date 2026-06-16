@@ -9,6 +9,7 @@ import TestimonialsSection from "../../components/public/TestimonialsSection";
 import InstagramFeed from "../../components/public/InstagramFeed";
 import Gabha from "../../components/public/Gabha";
 import VideoArtwork from "../../components/public/VideoArtwork";
+import AppointmentSection from "../../components/public/AppointmentSection";
 
 const Home = () => {
   const [banners, setBanners] = useState<any[]>([]);
@@ -34,21 +35,17 @@ const Home = () => {
             api.get("/cms/gallery"),
           ]);
 
-        const activeBanners = bannersRes.data.filter((b: any) => b.isActive);
-        setBanners(activeBanners);
+        setBanners(bannersRes.data);
         setAboutUs(aboutRes.data);
         setInstagramPosts(igRes.data);
-        setTestimonials(testimonialsRes.data.filter((t: any) => t.isActive));
+        setTestimonials(testimonialsRes.data);
+        setGalleries(galleriesRes.data);
 
-        const activeGalleries = galleriesRes.data.filter(
-          (g: any) => g.isActive,
-        );
-        setGalleries(activeGalleries);
-        if (activeGalleries.length > 0) {
-          setActiveGalleryTab(activeGalleries[0]._id);
+        if (galleriesRes.data.length > 0) {
+          setActiveGalleryTab(galleriesRes.data[0]._id);
         }
       } catch (error) {
-        console.error("Failed to load home page content", error);
+        console.error("Error fetching homepage data", error);
       } finally {
         setLoading(false);
       }
@@ -56,13 +53,13 @@ const Home = () => {
     fetchData();
   }, []);
 
+  // Slideshow auto-play effect
   useEffect(() => {
-    if (banners.length > 1) {
-      const timer = setInterval(() => {
-        setCurrentSlide((prev) => (prev + 1) % banners.length);
-      }, 6000);
-      return () => clearInterval(timer);
-    }
+    if (banners.length <= 1) return;
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % banners.length);
+    }, 6000);
+    return () => clearInterval(timer);
   }, [banners]);
 
   if (loading) {
@@ -72,26 +69,35 @@ const Home = () => {
   }
 
   return (
-    <div>
+    <div className="-mt-20">
       <HomeBanner
         banners={banners}
         currentSlide={currentSlide}
         setCurrentSlide={setCurrentSlide}
       />
-      <div className=" max-w-[1200px] mx-auto">
-        <AboutSection aboutUs={aboutUs} />
-        <SwiperGallery
-          galleries={galleries}
-          activeGalleryTab={activeGalleryTab}
-          setActiveGalleryTab={setActiveGalleryTab}
-        />
+
+      {/* About Section (Full width container with internal constraints) */}
+      <AboutSection aboutUs={aboutUs} />
+
+      {/* Gallery Section (Full width container with internal constraints) */}
+      <SwiperGallery
+        galleries={galleries}
+        activeGalleryTab={activeGalleryTab}
+        setActiveGalleryTab={setActiveGalleryTab}
+      />
+
+      {/* Mid-page sections centered */}
+      <div className="max-w-full mx-auto px-6 space-y-24 py-12">
         <Gabha />
         <FeaturedCollection />
         <VideoArtwork />
-        {/* <AestheticBanner /> */}
+        <AppointmentSection />
+
         <TestimonialsSection testimonials={testimonials} />
         <InstagramFeed instagramPosts={instagramPosts} />
       </div>
+
+      {/* Appointment Section */}
     </div>
   );
 };

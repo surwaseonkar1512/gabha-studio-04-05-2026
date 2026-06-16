@@ -41,17 +41,14 @@ const Footer = (props: Props) => {
   ].filter((s) => s.href && s.href !== "#");
 
   return (
-    <footer className="relative w-full overflow-visible my-20">
+    <footer className="relative w-full overflow-visible mt-20 ">
       {/* Background image (uses public/footerbg.png) */}
       <div
-        className="absolute inset-0 bg-right-bottom bg-no-repeat bg-contain"
+        className="w-full absolute inset-0 bg-right-bottom mt-[140px]  bg-cover"
         style={{ backgroundImage: "url('/footerbg.png')" }}
       />
 
       {/* Appointment section (above footer content) */}
-      <div className="relative z-10">
-        <AppointmentSection />
-      </div>
 
       {/* Main row: form+links left, image right */}
       <div className="relative z-10 max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-16">

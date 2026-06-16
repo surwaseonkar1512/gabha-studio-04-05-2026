@@ -5,74 +5,81 @@ type AboutSectionProps = {
   aboutUs: any;
 };
 
-const AboutSection = ({ aboutUs }: AboutSectionProps) => (
-  <section className="py-24 bg-zinc-50">
-    <div className="max-w-full w-full  ">
-      {aboutUs ? (
-        <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-12 justify-between">
-          <div className="lg:col-span-3 flex items-center justify-center lg:justify-start">
-            {aboutUs.leftImage && (
-              <div className="w-full max-w-full aspect-square rounded-3xl overflow-hidden shadow-2xl border border-zinc-200 -translate-y-6 hover:scale-[1.02] transition-transform duration-300">
-                <img
-                  src={aboutUs.leftImage}
-                  alt="About artwork left"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            )}
+const AboutSection = ({ aboutUs }: AboutSectionProps) => {
+  const descriptionText =
+    aboutUs?.description ||
+    "A sculpture is more than art; it is a silent conversation between the artist’s vision and the beauty created from something as simple and natural as clay.\nThrough clay, artists give shape to dreams, preserve emotions, and create masterpieces";
+
+  const paragraphs = descriptionText.split("\n").filter(Boolean);
+
+  return (
+    <section className="py-24 bg-white border-b border-zinc-100">
+      <div className="max-w-[1400px] mx-auto px-6">
+        <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+          {/* Left Floating Image */}
+          <div className="lg:col-span-3 flex items-center justify-center">
+            <div className="w-full max-w-[280px] aspect-[4/5] rounded-[32px] overflow-hidden shadow-xl border border-zinc-100 hover:scale-[1.02] transition-transform duration-300">
+              <img
+                src={
+                  aboutUs?.leftImage && !aboutUs.leftImage.includes("default")
+                    ? aboutUs.leftImage
+                    : "/about_clay_face.png"
+                }
+                alt="About artwork left"
+                className="w-full h-full object-cover"
+              />
+            </div>
           </div>
 
-          <div className="lg:col-span-6 space-y-1 lg:px-6 text-center items-center justify-center">
-            <h2 className="font-tangerine text-xl sm:text-3xl text-black font-bold ">
-              {aboutUs.title}
+          {/* Center Text Section */}
+          <div className="lg:col-span-6 text-center space-y-6 px-4">
+            <h2 className="font-tangerine text-5xl sm:text-6xl text-zinc-800 font-semibold tracking-wide">
+              {aboutUs?.title || "About Us"}
             </h2>
-            {aboutUs.subtitle && (
-              <p className="text-2xl sm:text-4xl font-fraunces font-normal text-[#267C87]  ">
-                {aboutUs.subtitle}
-              </p>
-            )}
 
-            {aboutUs.description ? (
-              <div className="prose prose-slate text-xl mt-3 sm:text-xl max-w-full flex items-center justify-center fo nt-instrument-sans text-black  space-y-4">
-                <p className="w-[90%] text-normal">{aboutUs.description}</p>
+            <p className="text-2xl sm:text-3xl font-fraunces font-medium text-[#1e606b] leading-tight max-w-xl mx-auto">
+              {aboutUs?.subtitle ||
+                "The Art of Clay Sculptures: Where Imagination Takes Shape"}
+            </p>
+
+            <div className="font-instrument-sans text-zinc-700 text-lg sm:text-xl leading-relaxed max-w-xl mx-auto space-y-4">
+              {paragraphs.map((p: string, idx: number) => (
+                <p key={idx} className="font-normal text-zinc-600">
+                  {p.trim()}
+                </p>
+              ))}
+            </div>
+
+            {/* {aboutUs?.ctaText && (
+              <div className="pt-2">
+                <Link
+                  to={aboutUs.ctaLink || "/about"}
+                  className="inline-block text-sm font-bold uppercase tracking-widest border-b-2 border-zinc-800 pb-1 text-zinc-800 hover:text-[#1e606b] hover:border-[#1e606b] transition-colors"
+                >
+                  {aboutUs.ctaText}
+                </Link>
               </div>
-            ) : (
-              <p className="text-gray-500 italic">No details provided yet.</p>
-            )}
+            )} */}
           </div>
 
-          <div className="lg:col-span-3 flex items-center justify-center lg:justify-start mt-14">
-            {aboutUs.rightImage && (
-              <div className="w-full max-w-full aspect-square rounded-3xl overflow-hidden shadow-2xl border border-zinc-200 translate-y-6 hover:scale-[1.02] transition-transform duration-300">
-                <img
-                  src={aboutUs.rightImage}
-                  alt="About artwork right"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            )}
+          {/* Right Floating Image */}
+          <div className="lg:col-span-3 flex items-center justify-center">
+            <div className="w-full max-w-[280px] aspect-[4/5] rounded-[32px] overflow-hidden shadow-xl border border-zinc-100 hover:scale-[1.02] transition-transform duration-300">
+              <img
+                src={
+                  aboutUs?.rightImage && !aboutUs.rightImage.includes("default")
+                    ? aboutUs.rightImage
+                    : "/about_sculpting_tools.png"
+                }
+                alt="About artwork right"
+                className="w-full h-full object-cover"
+              />
+            </div>
           </div>
         </div>
-      ) : (
-        <div className="text-center max-w-3xl mx-auto space-y-6">
-          <h2 className="text-3xl font-bold uppercase tracking-widest text-black">
-            A Legacy of Stone
-          </h2>
-          <div className="h-1 w-20 bg-[#D4AF37] mx-auto"></div>
-          <p className="text-gray-600 leading-relaxed text-sm sm:text-base">
-            Founded in the heart of the artisan district, Gabha Studio began
-            with a singular vision: to craft sculptures that transcend time.
-          </p>
-          <Link
-            to="/about"
-            className="inline-block text-xs font-bold uppercase tracking-widest border-b-2 border-black pb-1 hover:text-[#D4AF37]"
-          >
-            Learn more
-          </Link>
-        </div>
-      )}
-    </div>
-  </section>
-);
+      </div>
+    </section>
+  );
+};
 
 export default AboutSection;

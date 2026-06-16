@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Outlet, Link, useLocation } from "react-router-dom";
-import { Palette, Menu, X } from "lucide-react";
+import { Palette, Menu, X, Smartphone } from "lucide-react";
 import api from "../api/axiosInstance";
 import Footer from "./Footer";
 
@@ -12,7 +12,7 @@ const PublicLayout = () => {
   const navLinks = [
     { name: "Home", path: "/" },
     { name: "Artwork", path: "/#artwork" },
-    { name: "Gallery", path: "/#gallery" },
+    { name: "Galley", path: "/#gallery" },
     { name: "Our Story", path: "/#story" },
     { name: "Start a project", path: "/#project" },
   ];
@@ -62,7 +62,7 @@ const PublicLayout = () => {
   return (
     <div className="min-h-screen flex flex-col font-sans bg-transparent text-white">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-black/15 backdrop-blur-xl border-b border-white/10">
+      <header className="sticky top-0 z-50  backdrop-blur-md border-b border-white/5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex h-20 items-center justify-between gap-4">
             <Link to="/" className="flex items-center gap-3">
@@ -73,21 +73,53 @@ const PublicLayout = () => {
                   className="h-12 w-auto object-contain"
                 />
               ) : (
-                <div className="flex items-center gap-2 text-white">
-                  <Palette className="h-6 w-6 text-[#D4AF37]" />
-                  <span className="text-lg font-semibold uppercase tracking-widest">
-                    {settings?.websiteName || "Gabha Studio"}
-                  </span>
+                <div className="flex flex-col items-center justify-center pt-2">
+                  <svg
+                    className="h-14 w-auto"
+                    viewBox="0 0 120 100"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <polygon
+                      points="60,5 110,80 10,80"
+                      stroke="white"
+                      strokeWidth="2"
+                      fill="none"
+                    />
+                    <text
+                      x="60"
+                      y="66"
+                      fill="white"
+                      fontSize="16"
+                      fontFamily="Fraunces, serif"
+                      fontWeight="600"
+                      textAnchor="middle"
+                      letterSpacing="4"
+                    >
+                      GABHA
+                    </text>
+                    <text
+                      x="60"
+                      y="93"
+                      fill="white"
+                      fontSize="8"
+                      fontFamily="sans-serif"
+                      textAnchor="middle"
+                      letterSpacing="3"
+                    >
+                      STUDIO
+                    </text>
+                  </svg>
                 </div>
               )}
             </Link>
 
-            <nav className="hidden md:flex items-center gap-8 text-sm uppercase tracking-[0.22em] text-white/80">
+            <nav className="hidden md:flex items-center gap-8 text-sm tracking-[0.2em] text-white/95">
               {navLinks.map((link) => (
                 <Link
                   key={link.name}
                   to={link.path}
-                  className={`transition-colors duration-200 ${isActive(link.path) ? "text-white" : "hover:text-white"}`}
+                  className={`transition-colors duration-200 ${isActive(link.path) ? "text-white font-semibold" : "hover:text-white"}`}
                 >
                   {link.name}
                 </Link>
@@ -97,8 +129,9 @@ const PublicLayout = () => {
             <div className="hidden md:flex items-center gap-4">
               <Link
                 to="/contact"
-                className="inline-flex items-center gap-2 rounded-full bg-[#D4AF37] px-5 py-3 text-sm font-semibold uppercase tracking-[0.22em] text-black transition hover:bg-[#e0c56d]"
+                className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-black hover:bg-white/90 transition shadow-lg"
               >
+                <Smartphone className="h-4.5 w-4.5 text-black" />
                 Contact Us
               </Link>
             </div>
@@ -118,7 +151,7 @@ const PublicLayout = () => {
         </div>
 
         {isMenuOpen && (
-          <div className="md:hidden border-t border-white/10 bg-black/70 backdrop-blur-xl">
+          <div className="md:hidden border-t border-white/10 bg-black/80 backdrop-blur-xl">
             <div className="max-w-7xl mx-auto px-4 py-4 space-y-3">
               {navLinks.map((link) => (
                 <Link
@@ -133,8 +166,9 @@ const PublicLayout = () => {
               <Link
                 to="/contact"
                 onClick={() => setIsMenuOpen(false)}
-                className="block rounded-full bg-[#D4AF37] px-5 py-3 text-center text-sm font-semibold uppercase tracking-[0.22em] text-black"
+                className="inline-flex items-center justify-center w-full gap-2 rounded-full bg-white px-5 py-3 text-center text-sm font-semibold text-black"
               >
+                <Smartphone className="h-4.5 w-4.5 text-black" />
                 Contact Us
               </Link>
             </div>
