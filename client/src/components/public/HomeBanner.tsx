@@ -49,7 +49,7 @@ const HomeBanner = ({ banners, currentSlide, setCurrentSlide }: HomeBannerProps)
     }, [settings]);
 
     return (
-        <section className="relative h-screen bg-zinc-950 overflow-hidden text-white">
+        <section className="relative h-[60vh] sm:h-screen bg-zinc-950 overflow-hidden text-white">
 
             {banners.length > 0 ? (
                 <div className="absolute inset-0 w-full h-full">
@@ -73,7 +73,7 @@ const HomeBanner = ({ banners, currentSlide, setCurrentSlide }: HomeBannerProps)
                             <div className="absolute inset-0 flex items-center justify-center text-center px-6">
                                 <div className="relative mx-auto max-w-5xl">
                                     {banner.title === 'Timeless Sculptures' || !banner.title ? (
-                                        <h1 className="font-fraunces text-[clamp(65px,7vw,120px)] md:text-[clamp(90px,10vw,170px)] leading-[0.9] uppercase tracking-[-0.01em] drop-shadow-[0_12px_24px_rgba(0,0,0,0.25)] flex flex-col md:flex-row items-center justify-center gap-x-6">
+                                        <h1 className="font-fraunces text-[clamp(28px,7.5vw,55px)] md:text-[clamp(55px,8.5vw,90px)] lg:text-[clamp(90px,10vw,170px)] leading-[0.9] uppercase tracking-[-0.01em] drop-shadow-[0_12px_24px_rgba(0,0,0,0.25)] flex flex-col lg:flex-row items-center justify-center gap-x-6 gap-y-2 lg:gap-y-0">
                                             <span className="flex">
                                                 <span className="text-white">T</span>
                                                 <span className="text-white">i</span>
@@ -98,7 +98,7 @@ const HomeBanner = ({ banners, currentSlide, setCurrentSlide }: HomeBannerProps)
                                             </span>
                                         </h1>
                                     ) : (
-                                        <h1 className="font-fraunces text-outline text-[clamp(90px,10vw,170px)] leading-[0.9] uppercase tracking-[-0.01em] drop-shadow-[0_24px_45px_rgba(0,0,0,0.25)]"
+                                        <h1 className="font-fraunces text-outline text-[clamp(32px,10vw,55px)] md:text-[clamp(55px,8.5vw,90px)] lg:text-[clamp(90px,10vw,170px)] leading-[0.9] uppercase tracking-[-0.01em] drop-shadow-[0_24px_45px_rgba(0,0,0,0.25)]"
                                             style={{ WebkitTextStroke: '1.5px rgba(255,255,255,0.95)', mixBlendMode: 'screen' }}
                                         >
                                             {banner.title}

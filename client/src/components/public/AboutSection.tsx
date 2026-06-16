@@ -13,12 +13,33 @@ const AboutSection = ({ aboutUs }: AboutSectionProps) => {
   const paragraphs = descriptionText.split("\n").filter(Boolean);
 
   return (
-    <section className="py-24 bg-white border-b border-zinc-100">
-      <div className="max-w-[1400px] mx-auto px-6">
-        <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+    <section className="py-12 sm:py-16 lg:py-24 bg-white border-b border-zinc-100 overflow-hidden">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6">
+        <div className="w-full grid grid-cols-2 lg:grid-cols-12 gap-6 sm:gap-8 items-center justify-center">
+          
+          {/* Center Text Section */}
+          <div className="col-span-2 lg:col-span-6 text-center space-y-4 sm:space-y-6 px-2 sm:px-4 order-1 lg:order-2">
+            <h2 className="font-tangerine text-4xl sm:text-5xl lg:text-6xl text-zinc-800 font-semibold tracking-wide">
+              {aboutUs?.title || "About Us"}
+            </h2>
+
+            <p className="text-xl sm:text-2xl lg:text-3xl font-fraunces font-medium text-[#1e606b] leading-tight max-w-xl mx-auto">
+              {aboutUs?.subtitle ||
+                "The Art of Clay Sculptures: Where Imagination Takes Shape"}
+            </p>
+
+            <div className="font-instrument-sans text-zinc-700 text-sm sm:text-base lg:text-[18px] leading-relaxed max-w-xl mx-auto space-y-3 sm:space-y-4">
+              {paragraphs.map((p: string, idx: number) => (
+                <p key={idx} className="font-normal text-zinc-600">
+                  {p.trim()}
+                </p>
+              ))}
+            </div>
+          </div>
+
           {/* Left Floating Image */}
-          <div className="lg:col-span-3 flex items-center justify-center">
-            <div className="w-full max-w-[280px] aspect-[4/5] rounded-[32px] overflow-hidden shadow-xl border border-zinc-100 hover:scale-[1.02] transition-transform duration-300">
+          <div className="col-span-1 lg:col-span-3 flex justify-end lg:justify-center order-2 lg:order-1 mt-4 lg:mt-0">
+            <div className="w-[125px] sm:w-[170px] md:w-[210px] lg:w-full lg:max-w-[280px] aspect-[4/5] rounded-[24px] sm:rounded-[32px] overflow-hidden shadow-xl border border-zinc-100 hover:scale-[1.02] transition-transform duration-300">
               <img
                 src={
                   aboutUs?.leftImage && !aboutUs.leftImage.includes("default")
@@ -31,40 +52,9 @@ const AboutSection = ({ aboutUs }: AboutSectionProps) => {
             </div>
           </div>
 
-          {/* Center Text Section */}
-          <div className="lg:col-span-6 text-center space-y-6 px-4">
-            <h2 className="font-tangerine text-5xl sm:text-6xl text-zinc-800 font-semibold tracking-wide">
-              {aboutUs?.title || "About Us"}
-            </h2>
-
-            <p className="text-2xl sm:text-3xl font-fraunces font-medium text-[#1e606b] leading-tight max-w-xl mx-auto">
-              {aboutUs?.subtitle ||
-                "The Art of Clay Sculptures: Where Imagination Takes Shape"}
-            </p>
-
-            <div className="font-instrument-sans text-zinc-700 text-lg sm:text-xl leading-relaxed max-w-xl mx-auto space-y-4">
-              {paragraphs.map((p: string, idx: number) => (
-                <p key={idx} className="font-normal text-zinc-600">
-                  {p.trim()}
-                </p>
-              ))}
-            </div>
-
-            {/* {aboutUs?.ctaText && (
-              <div className="pt-2">
-                <Link
-                  to={aboutUs.ctaLink || "/about"}
-                  className="inline-block text-sm font-bold uppercase tracking-widest border-b-2 border-zinc-800 pb-1 text-zinc-800 hover:text-[#1e606b] hover:border-[#1e606b] transition-colors"
-                >
-                  {aboutUs.ctaText}
-                </Link>
-              </div>
-            )} */}
-          </div>
-
           {/* Right Floating Image */}
-          <div className="lg:col-span-3 flex items-center justify-center">
-            <div className="w-full max-w-[280px] aspect-[4/5] rounded-[32px] overflow-hidden shadow-xl border border-zinc-100 hover:scale-[1.02] transition-transform duration-300">
+          <div className="col-span-1 lg:col-span-3 flex justify-start lg:justify-center order-3 lg:order-3 mt-4 lg:mt-0">
+            <div className="w-[125px] sm:w-[170px] md:w-[210px] lg:w-full lg:max-w-[280px] aspect-[4/5] rounded-[24px] sm:rounded-[32px] overflow-hidden shadow-xl border border-zinc-100 hover:scale-[1.02] transition-transform duration-300">
               <img
                 src={
                   aboutUs?.rightImage && !aboutUs.rightImage.includes("default")
@@ -76,6 +66,7 @@ const AboutSection = ({ aboutUs }: AboutSectionProps) => {
               />
             </div>
           </div>
+
         </div>
       </div>
     </section>

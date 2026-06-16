@@ -18,7 +18,7 @@ const VideoArtwork: React.FC<VideoArtworkProps> = ({
     if (!videoRef.current) return;
     try {
       await videoRef.current.play();
-    } catch (_) {}
+    } catch (_) { }
     setIsPlaying(true);
   };
 
@@ -32,9 +32,9 @@ const VideoArtwork: React.FC<VideoArtworkProps> = ({
   return (
     <div>
       <div className="relative bg-white">
-        {/* inline sculpture image — replace src with your actual asset */}
-        <div className="absolute -top-48 left-0 transform -translate-x-1/2 -z-10">
-          <img src="/videosectionpng.png" alt="clay figures" />
+        {/* inline sculpture image — responsive and does not cause horizontal scroll */}
+        <div className="absolute -top-24 sm:-top-48 left-0 transform -translate-x-1/3 w-28 sm:w-48 lg:w-auto -z-10 opacity-30 lg:opacity-100 pointer-events-none overflow-hidden">
+          <img src="/videosectionpng.png" alt="clay figures" className="w-full h-auto" />
         </div>
       </div>
       <div className={`relative rounded-xl overflow-hidden  ${className}`}>
@@ -42,7 +42,7 @@ const VideoArtwork: React.FC<VideoArtworkProps> = ({
           ref={videoRef}
           src={src}
           poster={poster}
-          className="w-full h-72 md:h-96 object-cover"
+          className="w-full h-72 md:h-96 lg:h-[600px] object-cover"
           muted
           loop
           playsInline

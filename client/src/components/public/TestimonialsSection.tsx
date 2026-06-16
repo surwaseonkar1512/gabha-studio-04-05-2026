@@ -26,9 +26,9 @@ const TestimonialsSection = ({ testimonials }: Props) => {
   return (
     <section className="py-16 sm:py-20 lg:py-24">
       <div className="relative bg-white">
-        {/* inline sculpture image — replace src with your actual asset */}
-        <div className="absolute left-0 transform -translate-x-1/2 -z-10">
-          <img src="/videosectionpng.png" alt="clay figures" />
+        {/* inline sculpture image — responsive and does not cause horizontal scroll */}
+        <div className="absolute left-0 transform -translate-x-1/3 w-28 sm:w-48 lg:w-auto -z-10 opacity-30 lg:opacity-100 pointer-events-none overflow-hidden">
+          <img src="/videosectionpng.png" alt="clay figures" className="w-full h-auto" />
         </div>
       </div>
       {/* Top Images */}

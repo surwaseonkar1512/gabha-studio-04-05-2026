@@ -45,7 +45,7 @@ const AppointmentSection: React.FC = () => {
       console.error("Failed to submit appointment lead", error);
       alert(
         error.response?.data?.message ||
-          "Failed to send appointment request. Please try again.",
+        "Failed to send appointment request. Please try again.",
       );
     } finally {
       setIsSubmitting(false);
@@ -53,12 +53,12 @@ const AppointmentSection: React.FC = () => {
   };
 
   return (
-    <section className="max-w-[1400px] mx-auto my-24 px-6" id="project">
+    <section className="max-w-[1400px] mx-auto my-12 sm:my-20 lg:my-24 px-6" id="project">
       <div className="relative w-full rounded-[40px] overflow-hidden shadow-2xl bg-zinc-950 flex flex-col lg:flex-row">
         {/* Left Side: Crisp Image */}
-        <div className="w-full lg:w-1/2 min-h-[350px] lg:min-h-[550px] relative">
+        <div className="w-full lg:w-1/2 min-h-[200px] sm:min-h-[300px] lg:min-h-[550px] relative">
           <img
-            src="/appointment_sculpting.png"
+            src="/bookapointment.png"
             alt="Artist sculpting clay face close up"
             className="absolute inset-0 w-full h-full object-cover"
           />
@@ -66,11 +66,11 @@ const AppointmentSection: React.FC = () => {
         </div>
 
         {/* Right Side: Form on blurred image overlay */}
-        <div className="w-full lg:w-1/2 relative min-h-[450px] lg:min-h-[550px] flex items-center justify-center p-8 md:p-16">
+        <div className="w-full lg:w-1/2 relative min-h-[400px] sm:min-h-[450px] lg:min-h-[550px] flex items-center justify-center p-5 sm:p-8 md:p-12 lg:p-16">
           {/* Blurred background image layer */}
           <div className="absolute inset-0 z-0">
             <img
-              src="/appointment_sculpting.png"
+              src="/bookapointment.png"
               alt="Sculpting background blurred"
               className="w-full h-full object-cover blur-md scale-105"
             />

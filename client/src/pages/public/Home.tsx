@@ -87,8 +87,8 @@ const Home = () => {
       />
 
       {/* Mid-page sections centered */}
-      <div className="max-w-full mx-auto px-6 space-y-24 py-12">
-        <Gabha />
+      <Gabha />
+      <div className="max-w-full mx-auto px-6 space-y-12 sm:space-y-20 lg:space-y-24 py-12">
         <FeaturedCollection />
         <VideoArtwork />
         <AppointmentSection />

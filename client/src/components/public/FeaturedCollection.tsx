@@ -9,7 +9,7 @@ type FeaturedCollectionProps = {
   // Featured products are now fetched directly from API
 };
 
-const FeaturedCollection = ({}: FeaturedCollectionProps) => {
+const FeaturedCollection = ({ }: FeaturedCollectionProps) => {
   const navigate = useNavigate();
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -55,11 +55,10 @@ const FeaturedCollection = ({}: FeaturedCollectionProps) => {
   }, [selectedCategory, allProducts]);
 
   return (
-    <section className="py-24 ">
+    <section className="py-4 ">
       <div className="relative">
-        {/* inline sculpture image — replace src with your actual asset */}
-        <div className="absolute -top-20 right-0 transform -translate-y-1/2">
-          <img src="/proudctTopng.png" alt="clay figures" />
+        <div className="absolute -top-20 right-0 transform -translate-y-1/2 w-24 sm:w-36 md:w-48 lg:w-auto -z-10 opacity-30 md:opacity-100 pointer-events-none overflow-hidden">
+          <img src="/proudctTopng.png" alt="clay figures" className="w-full h-auto" />
         </div>
       </div>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -80,38 +79,34 @@ const FeaturedCollection = ({}: FeaturedCollectionProps) => {
         ) : (
           <>
             {/* Category Tabs */}
-            <div className="flex flex-wrap justify-center gap-3 mb-12">
+            <div className="flex flex-nowrap overflow-x-auto [&::-webkit-scrollbar]:hidden justify-start md:justify-center items-center gap-3 mb-8 pb-3 max-w-full px-4 -mx-4 scrollbar-none" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}>
               <button
                 onClick={() => setSelectedCategory("all")}
-                className={`px-5 py-2.5 border rounded-full text-md font-normal  tracking-wider transition-all duration-200 ${
-                  selectedCategory === "all"
-                    ? "bg-[#BFD0E3] border-black text-black border border-white shadow-lg"
-                    : "border-zinc-200 bg-white text-zinc-600 hover:border-black"
-                }`}
+                className={`px-5 py-2.5 border rounded-full text-md font-normal tracking-wider transition-all duration-200 shrink-0 ${selectedCategory === "all"
+                  ? "bg-[#BFD0E3] border-black text-black border border-white shadow-lg"
+                  : "border-zinc-200 bg-white text-zinc-600 hover:border-black"
+                  }`}
               >
                 All Products
               </button>
-              <div className="gap-3 flex flex-wrap justify-center ">
-                {categories.map((category) => (
-                  <button
-                    key={category._id}
-                    onClick={() => setSelectedCategory(category._id)}
-                    className={`px-5 py-2.5 border rounded-full text-md font-normal tracking-wider transition-all duration-200 ${
-                      selectedCategory === category._id
-                        ? "bg-[#BFD0E3] border-black text-black border border-white shadow-lg"
-                        : "border-zinc-200 bg-white text-zinc-600 hover:border-black shadow-lg"
+              {categories.map((category) => (
+                <button
+                  key={category._id}
+                  onClick={() => setSelectedCategory(category._id)}
+                  className={`px-5 py-2.5 border rounded-full text-md font-normal tracking-wider transition-all duration-200 shrink-0 ${selectedCategory === category._id
+                    ? "bg-[#BFD0E3] border-black text-black border border-white shadow-lg"
+                    : "border-zinc-200 bg-white text-zinc-600 hover:border-black shadow-lg"
                     }`}
-                  >
-                    {category.title}
-                  </button>
-                ))}
-              </div>
+                >
+                  {category.title}
+                </button>
+              ))}
             </div>
 
             {/* Products Grid */}
             {displayedProducts.length > 0 ? (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6 lg:gap-8">
                   {displayedProducts.map((product, index) => (
                     <ProductCard
                       key={product._id}
@@ -133,7 +128,7 @@ const FeaturedCollection = ({}: FeaturedCollectionProps) => {
                           selectedCategory === "all"
                             ? "all"
                             : categories.find((c) => c._id === selectedCategory)
-                                ?.slug;
+                              ?.slug;
                         navigate(`/products/${categorySlug}`);
                       }}
                       className="px-8 py-3 border-2 border-black text-black font-bold  tracking-wider hover:bg-black hover:text-white transition-all duration-300"

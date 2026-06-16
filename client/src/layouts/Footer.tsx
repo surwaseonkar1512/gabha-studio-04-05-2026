@@ -51,10 +51,10 @@ const Footer = (props: Props) => {
       {/* Appointment section (above footer content) */}
 
       {/* Main row: form+links left, image right */}
-      <div className="relative z-10 max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="flex flex-col lg:flex-row items-start gap-8 relative w-full">
+      <div className="relative z-10 max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
+        <div className="flex flex-col md:flex-row items-start gap-8 relative w-full">
           {/* Left: form + links */}
-          <div className="w-full lg:w-1/2 bg-transparent">
+          <div className="w-full md:w-1/2 bg-transparent">
             <div className="bg-[#91684A] rounded-2xl px-8 py-10 shadow-xl max-w-md">
               <h2
                 className="text-white text-3xl sm:text-4xl mb-3 leading-snug"
@@ -146,11 +146,11 @@ const Footer = (props: Props) => {
           </div>
 
           {/* Right: image */}
-          <div className="absolute w-full -mt-32 flex items-center justify-end z-20 pointer-events-none">
+          <div className="w-full md:absolute md:inset-y-0 md:right-0 md:-mt-32 flex items-center justify-center md:justify-end z-20 pointer-events-none mt-8 md:mt-0">
             <img
               src="/FooterImg.png"
               alt="Decoration"
-              className="w-[320px] sm:w-[380px] object-contain"
+              className="w-[220px] sm:w-[260px] md:w-[280px] lg:w-[380px] object-contain"
             />
           </div>
         </div>
