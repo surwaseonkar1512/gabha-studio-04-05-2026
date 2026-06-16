@@ -130,7 +130,7 @@ const LeadsList = () => {
   };
 
   // Manage Lead Modal State
-  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [selectedLead, setSelectedLead] = useState<any | null>(null);
   const [activeTab, setActiveTab] = useState<'details' | 'quotations' | 'activity' | 'reminders'>('details');
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editLeadData, setEditLeadData] = useState<any>(null);
@@ -302,7 +302,9 @@ const LeadsList = () => {
         notesRequirements: '',
         latitude: '',
         longitude: '',
-        locationType: 'Manual'
+        locationType: 'Manual',
+        priority: ''
+
       });
       setGpsSuccess(false);
       toast.success('Lead added successfully');
@@ -767,7 +769,7 @@ const LeadsList = () => {
                           {...provided.droppableProps}
                           className={`flex-1 p-3 overflow-y-auto min-h-[150px] transition-colors ${snapshot.isDraggingOver ? 'bg-amber-50/50 dark:bg-amber-900/10' : ''}`}
                         >
-                          {stageLeads.map((lead, index) => (
+                          {stageLeads.map((lead: any, index) => (
                             <Draggable key={lead._id} draggableId={lead._id} index={index}>
                               {(provided, snapshot) => (
                                 <div
@@ -781,11 +783,10 @@ const LeadsList = () => {
                                     <div className="flex items-center gap-2 flex-wrap">
                                       <h4 className="font-bold text-gray-900 dark:text-white text-sm">{lead.name}</h4>
                                       {lead.priority && (
-                                        <span className={`px-1.5 py-0.5 text-[9px] font-extrabold uppercase rounded ${
-                                          lead.priority === 'High' ? 'bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-450' :
+                                        <span className={`px-1.5 py-0.5 text-[9px] font-extrabold uppercase rounded ${lead.priority === 'High' ? 'bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-450' :
                                           lead.priority === 'Medium' ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-455' :
-                                          'bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-450'
-                                        }`}>
+                                            'bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-450'
+                                          }`}>
                                           {lead.priority}
                                         </span>
                                       )}
@@ -854,17 +855,16 @@ const LeadsList = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-zinc-800">
-                  {filteredLeads.map((lead) => (
+                  {filteredLeads.map((lead: any) => (
                     <tr key={lead._id} className="hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <div className="font-medium text-gray-900 dark:text-white">{lead.name}</div>
                           {lead.priority && (
-                            <span className={`px-1.5 py-0.5 text-[9px] font-extrabold uppercase rounded ${
-                              lead.priority === 'High' ? 'bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-450' :
+                            <span className={`px-1.5 py-0.5 text-[9px] font-extrabold uppercase rounded ${lead.priority === 'High' ? 'bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-450' :
                               lead.priority === 'Medium' ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-455' :
-                              'bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-450'
-                            }`}>
+                                'bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-450'
+                              }`}>
                               {lead.priority}
                             </span>
                           )}
@@ -1010,7 +1010,7 @@ const LeadsList = () => {
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
 
-               {activeTab === 'details' && (
+              {activeTab === 'details' && (
                 <div className="space-y-6">
                   {/* Contact & Status Information */}
                   <div className="bg-gray-50 dark:bg-zinc-900/50 p-5 rounded-xl border border-gray-100 dark:border-zinc-800">
@@ -1059,13 +1059,13 @@ const LeadsList = () => {
                   {/* Product & Artwork Interest */}
                   <div className="bg-gray-50 dark:bg-zinc-900/50 p-5 rounded-xl border border-gray-100 dark:border-zinc-800">
                     <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Product / Artwork Interest</h3>
-                    
+
                     {selectedLead.productDetails && (selectedLead.productDetails.title || selectedLead.productDetails.sku) ? (
                       <div className="flex gap-4 items-start bg-white dark:bg-zinc-950 p-4 rounded-lg border border-gray-200/60 dark:border-zinc-850">
                         {selectedLead.productDetails.image && (
-                          <img 
-                            src={selectedLead.productDetails.image} 
-                            alt={selectedLead.productDetails.title} 
+                          <img
+                            src={selectedLead.productDetails.image}
+                            alt={selectedLead.productDetails.title}
                             className="w-20 h-20 object-cover rounded-lg border border-gray-150 dark:border-zinc-800"
                           />
                         )}
@@ -1114,10 +1114,10 @@ const LeadsList = () => {
                       <div>
                         <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Target Delivery Date</p>
                         <p className="text-sm font-bold text-gray-950 dark:text-white">
-                          {selectedLead.requirementDetails?.preferredDeliveryDate 
+                          {selectedLead.requirementDetails?.preferredDeliveryDate
                             ? new Date(selectedLead.requirementDetails.preferredDeliveryDate).toLocaleDateString('en-IN', {
-                                day: '2-digit', month: 'short', year: 'numeric'
-                              })
+                              day: '2-digit', month: 'short', year: 'numeric'
+                            })
                             : 'Not Specified'}
                         </p>
                       </div>
@@ -1214,7 +1214,7 @@ const LeadsList = () => {
                 <div className="space-y-6">
                   <div className="bg-gray-50 dark:bg-zinc-900/50 p-5 rounded-xl border border-gray-100 dark:border-zinc-800">
                     <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Add New Reminder</h3>
-                    <form 
+                    <form
                       onSubmit={(e) => {
                         e.preventDefault();
                         if (!newReminder.title || !newReminder.dueDate) {
