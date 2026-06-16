@@ -194,7 +194,7 @@ const SwiperGallery = ({
                                 <img
                                     src={image.url}
                                     alt={`Gallery ${index + 1}`}
-                                    className="w-full h-[400px] object-cover"
+                                    className="w-full h-[220px] sm:h-[320px] md:h-[400px] object-cover"
                                 />
                             </div>
                         </SwiperSlide>

@@ -20,6 +20,7 @@ const {
   deleteCategory,
   reorderCategories,
   getProducts,
+  getProductById,
   createProduct,
   updateProduct,
   deleteProduct,
@@ -45,7 +46,12 @@ const {
   updateReviewStatus,
   deleteReview,
   getProductReviews,
-  createProductReview
+  createProductReview,
+  getJourneys,
+  createJourney,
+  updateJourney,
+  deleteJourney,
+  reorderJourneys
 } = require('../controllers/cmsController');
 
 const { protect, checkPermission } = require('../middleware/authMiddleware');
@@ -59,9 +65,11 @@ router.get('/about', getAboutUs);
 router.get('/gallery', getGalleries);
 router.get('/categories', getCategories);
 router.get('/products', getProducts);
+router.get('/products/:id', getProductById);
 router.get('/instagram', getInstagramItems);
 router.get('/testimonials', getTestimonials);
 router.get('/settings', getSiteSettings);
+router.get('/journey', getJourneys);
 
 // Storefront & Reviews public access
 router.get('/products/storefront', getStorefrontProducts);
@@ -124,5 +132,11 @@ router.delete('/testimonials/:id', checkPermission('cms', 'delete'), deleteTesti
 
 // Site Settings
 router.put('/settings', checkPermission('cms', 'edit'), updateSiteSettings);
+
+// Journey Milestones
+router.post('/journey', checkPermission('cms', 'add'), createJourney);
+router.put('/journey/reorder', checkPermission('cms', 'edit'), reorderJourneys);
+router.put('/journey/:id', checkPermission('cms', 'edit'), updateJourney);
+router.delete('/journey/:id', checkPermission('cms', 'delete'), deleteJourney);
 
 module.exports = router;

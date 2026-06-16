@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Layers, Info, Image, Palette, CreditCard, FileText, Settings, ArrowRight } from 'lucide-react';
+import { Layers, Info, Image, Palette, CreditCard, FileText, Settings, ArrowRight, Clock } from 'lucide-react';
 
 const CmsHub = () => {
   const modules = [
@@ -13,7 +13,7 @@ const CmsHub = () => {
     },
     {
       title: 'About Us Section',
-      description: 'Update the main story content, left/right gallery images, and customizable call-to-actions.',
+      description: 'Update the main story content, showcase images, and the chronological timeline journey milestones.',
       path: '/admin/cms/about',
       icon: <Info className="h-6 w-6 text-blue-500" />,
       color: 'border-blue-500/20 bg-blue-500/5'

@@ -15,6 +15,9 @@ import PublicLayout from './layouts/PublicLayout';
 import Home from './pages/public/Home';
 import About from './pages/public/About';
 import Contact from './pages/public/Contact';
+import Artwork from './pages/public/Artwork';
+import ProductDetails from './pages/public/ProductDetails';
+import Gallery from './pages/public/Gallery';
 
 // CMS Pages
 import CmsHub from './pages/cms/CmsHub';
@@ -40,6 +43,9 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
+          <Route path="/artwork" element={<Artwork />} />
+          <Route path="/product/:id" element={<ProductDetails />} />
+          <Route path="/gallery" element={<Gallery />} />
         </Route>
 
         {/* Auth Route */}

@@ -11,10 +11,10 @@ const PublicLayout = () => {
 
   const navLinks = [
     { name: "Home", path: "/" },
-    { name: "Artwork", path: "/#artwork" },
-    { name: "Galley", path: "/#gallery" },
-    { name: "Our Story", path: "/#story" },
-    { name: "Start a project", path: "/#project" },
+    { name: "Artwork", path: "/artwork" },
+    { name: "Gallery", path: "/gallery" },
+    { name: "Our Story", path: "/about" },
+    { name: "Start a project", path: "/contact" },
   ];
 
   useEffect(() => {
@@ -58,14 +58,19 @@ const PublicLayout = () => {
   }, [settings]);
 
   const isActive = (path: string) => location.pathname === path;
+  const isLightHeader =
+    location.pathname === "/artwork" ||
+    location.pathname === "/gallery" ||
+    location.pathname === "/contact" ||
+    location.pathname.startsWith("/product/");
 
   return (
     <div className="min-h-screen flex flex-col font-sans bg-transparent text-white">
       {/* Header */}
-      <header className="sticky top-0 z-50  backdrop-blur-md border-b border-white/5">
+      <header className={`sticky top-0 z-50 backdrop-blur-md transition-all duration-200 border-b ${isLightHeader ? "bg-white/95 border-zinc-200/80 shadow-sm text-zinc-900" : "border-white/5"}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex h-20 items-center justify-between gap-4">
-            <Link to="/" className="flex items-center gap-3">
+            <Link to="/" className="flex items-center gap-3 font-sans">
               {settings?.navbarLogo || settings?.websiteLogo ? (
                 <img
                   src={settings?.navbarLogo || settings?.websiteLogo}
@@ -82,14 +87,14 @@ const PublicLayout = () => {
                   >
                     <polygon
                       points="60,5 110,80 10,80"
-                      stroke="white"
+                      stroke={isLightHeader ? "black" : "white"}
                       strokeWidth="2"
                       fill="none"
                     />
                     <text
                       x="60"
                       y="66"
-                      fill="white"
+                      fill={isLightHeader ? "black" : "white"}
                       fontSize="16"
                       fontFamily="Fraunces, serif"
                       fontWeight="600"
@@ -101,7 +106,7 @@ const PublicLayout = () => {
                     <text
                       x="60"
                       y="93"
-                      fill="white"
+                      fill={isLightHeader ? "#666" : "white"}
                       fontSize="8"
                       fontFamily="sans-serif"
                       textAnchor="middle"
@@ -114,12 +119,12 @@ const PublicLayout = () => {
               )}
             </Link>
 
-            <nav className="hidden md:flex items-center gap-8 text-sm tracking-[0.2em] text-white/95">
+            <nav className={`hidden md:flex items-center gap-8 text-sm tracking-[0.2em] ${isLightHeader ? "text-zinc-700" : "text-white/95"}`}>
               {navLinks.map((link) => (
                 <Link
                   key={link.name}
                   to={link.path}
-                  className={`transition-colors duration-200 ${isActive(link.path) ? "text-white font-semibold" : "hover:text-white"}`}
+                  className={`transition-colors duration-200 ${isActive(link.path) ? (isLightHeader ? "text-black font-semibold" : "text-white font-semibold") : (isLightHeader ? "hover:text-black" : "hover:text-white")}`}
                 >
                   {link.name}
                 </Link>
@@ -129,16 +134,16 @@ const PublicLayout = () => {
             <div className="hidden md:flex items-center gap-4">
               <Link
                 to="/contact"
-                className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-black hover:bg-white/90 transition shadow-lg"
+                className={`inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold transition shadow-lg ${isLightHeader ? "bg-black text-white hover:bg-black/90" : "bg-white text-black hover:bg-white/90"}`}
               >
-                <Smartphone className="h-4.5 w-4.5 text-black" />
+                <Smartphone className={`h-4.5 w-4.5 ${isLightHeader ? "text-white" : "text-black"}`} />
                 Contact Us
               </Link>
             </div>
 
             <button
               type="button"
-              className="inline-flex items-center justify-center rounded-full border border-white/20 bg-black/30 p-2 text-white md:hidden"
+              className={`inline-flex items-center justify-center rounded-full border p-2 md:hidden ${isLightHeader ? "border-zinc-200 bg-white/80 text-zinc-800" : "border-white/20 bg-black/30 text-white"}`}
               onClick={() => setIsMenuOpen((prev) => !prev)}
             >
               {isMenuOpen ? (
@@ -151,14 +156,14 @@ const PublicLayout = () => {
         </div>
 
         {isMenuOpen && (
-          <div className="md:hidden border-t border-white/10 bg-black/80 backdrop-blur-xl">
+          <div className={`md:hidden border-t backdrop-blur-xl ${isLightHeader ? "border-zinc-200 bg-white/95 text-zinc-900 shadow-lg" : "border-white/10 bg-black/80"}`}>
             <div className="max-w-7xl mx-auto px-4 py-4 space-y-3">
               {navLinks.map((link) => (
                 <Link
                   key={link.name}
                   to={link.path}
                   onClick={() => setIsMenuOpen(false)}
-                  className="block text-white/90 hover:text-white text-base uppercase tracking-[0.2em]"
+                  className={`block text-base uppercase tracking-[0.2em] ${isLightHeader ? "text-zinc-700 hover:text-black" : "text-white/90 hover:text-white"}`}
                 >
                   {link.name}
                 </Link>
@@ -166,9 +171,9 @@ const PublicLayout = () => {
               <Link
                 to="/contact"
                 onClick={() => setIsMenuOpen(false)}
-                className="inline-flex items-center justify-center w-full gap-2 rounded-full bg-white px-5 py-3 text-center text-sm font-semibold text-black"
+                className={`inline-flex items-center justify-center w-full gap-2 rounded-full px-5 py-3 text-center text-sm font-semibold ${isLightHeader ? "bg-black text-white" : "bg-white text-black"}`}
               >
-                <Smartphone className="h-4.5 w-4.5 text-black" />
+                <Smartphone className="h-4.5 w-4.5" />
                 Contact Us
               </Link>
             </div>

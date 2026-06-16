@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Send, MapPin, Phone, Mail, Navigation } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Send, MapPin, Phone, Mail, Navigation, } from "lucide-react";
 import api from "../../api/axiosInstance";
 import toast from "react-hot-toast";
+import AppointmentSection from "../../components/public/AppointmentSection";
 
 const Contact = () => {
   const [settings, setSettings] = useState<any>(null);
@@ -23,6 +25,7 @@ const Contact = () => {
   >("idle");
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsSuccess, setGpsSuccess] = useState(false);
+  const [emailSub, setEmailSub] = useState("");
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -35,6 +38,13 @@ const Contact = () => {
     };
     fetchSettings();
   }, []);
+
+  const handleSubscribe = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!emailSub) return;
+    toast.success("Thank you for subscribing to our updates!");
+    setEmailSub("");
+  };
 
   const handleGPSCapture = () => {
     if (!navigator.geolocation) {
@@ -61,10 +71,10 @@ const Contact = () => {
               const addr = data.address;
               const parts = [
                 addr.suburb ||
-                  addr.neighbourhood ||
-                  addr.village ||
-                  addr.quarter ||
-                  addr.subdivision,
+                addr.neighbourhood ||
+                addr.village ||
+                addr.quarter ||
+                addr.subdivision,
                 addr.city || addr.town || addr.municipality || addr.county,
                 addr.state || addr.region,
               ].filter(Boolean);
@@ -131,6 +141,7 @@ Notes/Requirements: ${formData.notesRequirements || "None"}
 GPS Coordinates: ${formData.locationType === "GPS" ? `${formData.latitude}, ${formData.longitude}` : "None"}`,
       });
       setStatus("success");
+      toast.success("Your inquiry has been submitted successfully!");
       setFormData({
         name: "",
         phone: "",
@@ -147,130 +158,99 @@ GPS Coordinates: ${formData.locationType === "GPS" ? `${formData.latitude}, ${fo
       setGpsSuccess(false);
     } catch (error) {
       setStatus("error");
+      toast.error("Failed to submit inquiry. Please try again.");
     }
   };
 
   return (
-    <div className="bg-white min-h-screen">
-      {/* Header */}
-      <div className="bg-black py-20 text-center">
-        <h1 className="text-4xl md:text-5xl font-bold text-white tracking-widest uppercase mb-4">
-          Contact <span className="text-[#D4AF37]">Us</span>
+    <div className="bg-white min-h-screen text-black font-sans overflow-x-hidden">
+      {/* SECTION 1: Gradient Title Header Banner */}
+      <section className="pt-24 pb-28 sm:pt-32 sm:pb-40 px-4 sm:px-6 bg-gradient-to-r from-[#85AEBE] to-[#396E7E] text-center">
+        <h1 className="font-bodoni text-3xl sm:text-5xl lg:text-7xl font-normal text-zinc-950 tracking-wide">
+          Get In Touch
         </h1>
-        <div className="h-1 w-24 bg-[#990000] mx-auto"></div>
-      </div>
+        <p className="text-zinc-900/80 font-sans text-xs sm:text-sm max-w-2xl mx-auto mt-4 leading-relaxed font-light">
+          We'll create high-quality linkable content and build at least 40 high-authority links to
+          each asset, paving the way for you to grow your rankings, improve brand.
+        </p>
+      </section>
 
-      <div className="max-w-7xl mx-auto px-4 py-20">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
-          {/* Contact Info */}
-          <div>
-            <h2 className="text-2xl font-bold text-black uppercase tracking-widest mb-8">
-              Get in Touch
-            </h2>
-            <p className="text-gray-600 mb-12 leading-relaxed">
-              Whether you are looking to commission a custom sculpture or
-              inquire about our existing collection, our team is ready to assist
-              you.
-            </p>
+      {/* SECTION 2: Overlapping Contact Info & Form Card */}
+      <section className="px-4 sm:px-6 lg:px-8 relative z-10 -mt-16 sm:-mt-24 lg:-mt-28">
+        <div className="max-w-5xl mx-auto bg-white border border-zinc-100 rounded-[24px] sm:rounded-[32px] overflow-hidden shadow-2xl grid grid-cols-1 md:grid-cols-12">
 
-            <div className="space-y-8">
-              <div className="flex items-start">
-                <div className="flex-shrink-0 mt-1">
-                  <MapPin className="h-6 w-6 text-[#990000]" />
-                </div>
-                <div className="ml-4">
-                  <h3 className="text-lg font-bold uppercase tracking-wider text-black">
-                    Visit Studio
-                  </h3>
-                  <p className="text-gray-600 mt-1 whitespace-pre-wrap">
-                    {settings?.companyAddress ||
-                      "123 Artisan District\nNew York, NY 10012"}
-                  </p>
-                </div>
-              </div>
+          {/* Left Column: Contact Information */}
+          <div className="md:col-span-5 bg-[#8E6259] p-6 sm:p-10 text-white flex flex-col justify-between relative overflow-hidden">
+            {/* Background design accents */}
+            <div className="absolute -bottom-10 -right-10 w-40 h-40 rounded-full bg-white/5" />
+            <div className="absolute top-10 right-10 w-20 h-20 rounded-full bg-white/5" />
 
-              <div className="flex items-start">
-                <div className="flex-shrink-0 mt-1">
-                  <Phone className="h-6 w-6 text-[#D4AF37]" />
-                </div>
-                <div className="ml-4">
-                  <h3 className="text-lg font-bold uppercase tracking-wider text-black">
-                    Call Us
-                  </h3>
-                  <p className="text-gray-600 mt-1">
-                    {settings?.phoneNumber || "+1 (555) 123-4567"}
-                  </p>
-                </div>
-              </div>
+            <div className="relative z-10">
+              <h2 className="font-bodoni text-2xl sm:text-3xl font-light tracking-wide mb-4">
+                Contact Information
+              </h2>
+              <p className="text-zinc-100/80 text-xs sm:text-sm leading-relaxed mb-10 font-light">
+                We'll create high-quality linkable content and build at least 40 high-authority.
+              </p>
 
-              <div className="flex items-start">
-                <div className="flex-shrink-0 mt-1">
-                  <Mail className="h-6 w-6 text-black" />
+              <div className="space-y-6 text-xs sm:text-sm">
+                <div className="flex items-center gap-4">
+                  <Phone className="h-5 w-5 text-white/95 shrink-0" />
+                  <span>{settings?.phoneNumber || "+91 72614823049"}</span>
                 </div>
-                <div className="ml-4">
-                  <h3 className="text-lg font-bold uppercase tracking-wider text-black">
-                    Email Us
-                  </h3>
-                  <p className="text-gray-600 mt-1">
-                    {settings?.emailAddress || "info@gabhastudio.com"}
-                  </p>
+
+                <div className="flex items-center gap-4">
+                  <Mail className="h-5 w-5 text-white/95 shrink-0" />
+                  <span className="break-all">{settings?.emailAddress || "jkjwefnmhjdsjfm@gmail.com"}</span>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <img src="/instagram.png" className="h-5 w-5 object-contain invert brightness-200 shrink-0" alt="Instagram" />
+                  <span>{settings?.instagramUrl ? settings.instagramUrl.split('/').pop() : "Gabha_claystore"}</span>
+                </div>
+
+                <div className="flex items-start gap-4">
+                  <MapPin className="h-5 w-5 text-white/95 shrink-0 mt-0.5" />
+                  <span className="whitespace-pre-line">
+                    {settings?.companyAddress || "Kothrud Pune Maharashtra"}
+                  </span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Contact Form */}
-          <div className="bg-gray-50 p-8 border border-gray-200">
-            <h3 className="text-xl font-bold uppercase tracking-widest text-black mb-6">
-              Send an Inquiry
-            </h3>
-
+          {/* Right Column: Contact Inquiry Form */}
+          <div className="md:col-span-7 p-6 sm:p-10 bg-white">
             {status === "success" && (
-              <div className="mb-6 p-4 bg-green-50 border border-green-200 text-green-800 font-medium">
-                Thank you! Your inquiry has been received. We will contact you
-                shortly.
+              <div className="mb-6 p-4 bg-green-50 border border-green-200 text-green-800 rounded-xl text-xs sm:text-sm font-medium">
+                Thank you! Your inquiry has been received. We will contact you shortly.
               </div>
             )}
 
             {status === "error" && (
-              <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-800 font-medium">
-                There was an error sending your message. Please try again or
-                call us.
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-800 rounded-xl text-xs sm:text-sm font-medium">
+                There was an error sending your message. Please try again.
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <label className="block text-sm font-bold uppercase tracking-wider text-black mb-2">
-                  Full Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                  className="w-full px-4 py-3 bg-white border border-gray-300 focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] transition-colors"
-                />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div>
-                  <label className="block text-sm font-bold uppercase tracking-wider text-black mb-2">
-                    Phone *
+                  <label className="block text-xs font-semibold text-zinc-700 uppercase tracking-wider mb-1.5">
+                    Full Name *
                   </label>
                   <input
-                    type="tel"
+                    type="text"
                     required
-                    value={formData.phone}
+                    value={formData.name}
                     onChange={(e) =>
-                      setFormData({ ...formData, phone: e.target.value })
+                      setFormData({ ...formData, name: e.target.value })
                     }
-                    className="w-full px-4 py-3 bg-white border border-gray-300 focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] transition-colors"
+                    className="w-full px-4 py-3 bg-white border border-zinc-200 rounded-xl text-sm focus:outline-none focus:border-[#4F8FA1] focus:ring-1 focus:ring-[#4F8FA1] transition-colors"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold uppercase tracking-wider text-black mb-2">
+                  <label className="block text-xs font-semibold text-zinc-700 uppercase tracking-wider mb-1.5">
                     Email *
                   </label>
                   <input
@@ -280,68 +260,81 @@ GPS Coordinates: ${formData.locationType === "GPS" ? `${formData.latitude}, ${fo
                     onChange={(e) =>
                       setFormData({ ...formData, email: e.target.value })
                     }
-                    className="w-full px-4 py-3 bg-white border border-gray-300 focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] transition-colors"
+                    className="w-full px-4 py-3 bg-white border border-zinc-200 rounded-xl text-sm focus:outline-none focus:border-[#4F8FA1] focus:ring-1 focus:ring-[#4F8FA1] transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-700 uppercase tracking-wider mb-1.5">
+                    Phone Number *
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={formData.phone}
+                    onChange={(e) =>
+                      setFormData({ ...formData, phone: e.target.value })
+                    }
+                    className="w-full px-4 py-3 bg-white border border-zinc-200 rounded-xl text-sm focus:outline-none focus:border-[#4F8FA1] focus:ring-1 focus:ring-[#4F8FA1] transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-700 uppercase tracking-wider mb-1.5">
+                    Product/Service Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Clay Portrait, Sculpture"
+                    value={formData.productName}
+                    onChange={(e) =>
+                      setFormData({ ...formData, productName: e.target.value })
+                    }
+                    className="w-full px-4 py-3 bg-white border border-zinc-200 rounded-xl text-sm focus:outline-none focus:border-[#4F8FA1] focus:ring-1 focus:ring-[#4F8FA1] transition-colors"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-bold uppercase tracking-wider text-black mb-2">
-                  Product/Service Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Fine Art Portrait, Custom Sculpture commission"
-                  value={formData.productName}
-                  onChange={(e) =>
-                    setFormData({ ...formData, productName: e.target.value })
-                  }
-                  className="w-full px-4 py-3 bg-white border border-gray-300 focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] transition-colors"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="block text-sm font-bold uppercase tracking-wider text-black">
-                  Customer Location
+                <label className="block text-xs font-semibold text-zinc-700 uppercase tracking-wider mb-1.5">
+                  Customer Location (GPS Option)
                 </label>
                 <div className="flex gap-2">
                   <input
                     type="text"
-                    placeholder="e.g. Mumbai, New York (City/Area)"
+                    placeholder="City / Region"
                     value={formData.location}
                     onChange={(e) =>
                       setFormData({ ...formData, location: e.target.value })
                     }
-                    className="flex-1 px-4 py-3 bg-white border border-gray-300 focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] transition-colors"
+                    className="flex-1 px-4 py-3 bg-white border border-zinc-200 rounded-xl text-sm focus:outline-none focus:border-[#4F8FA1] focus:ring-1 focus:ring-[#4F8FA1] transition-colors"
                   />
                   <button
                     type="button"
                     onClick={handleGPSCapture}
                     disabled={gpsLoading}
-                    className={`px-4 py-3 border flex items-center justify-center gap-2 font-bold text-xs uppercase tracking-wider transition-colors ${gpsSuccess ? "bg-green-600 border-green-600 text-white" : "bg-white border-black text-black hover:bg-black hover:text-white"}`}
+                    className={`px-4 py-3 border flex items-center justify-center gap-2 font-semibold text-xs uppercase tracking-wider rounded-xl transition-all ${gpsSuccess
+                      ? "bg-green-600 border-green-600 text-white"
+                      : "bg-white border-zinc-200 text-zinc-800 hover:bg-zinc-50 cursor-pointer"
+                      }`}
                   >
                     <Navigation
                       className={`h-4 w-4 ${gpsLoading ? "animate-spin" : ""}`}
                     />
-                    {gpsLoading
-                      ? "Capturing..."
-                      : gpsSuccess
-                        ? "GPS Saved"
-                        : "Share GPS"}
+                    {gpsLoading ? "Capturing" : gpsSuccess ? "GPS Saved" : "Share GPS"}
                   </button>
                 </div>
                 {gpsSuccess && (
-                  <p className="text-xs text-green-700 font-medium">
-                    ✓ Live coordinates captured:{" "}
-                    {Number(formData.latitude).toFixed(5)},{" "}
-                    {Number(formData.longitude).toFixed(5)}
+                  <p className="text-xs text-green-700 font-medium mt-1">
+                    ✓ Coordinates captured: {Number(formData.latitude).toFixed(4)}, {Number(formData.longitude).toFixed(4)}
                   </p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-bold uppercase tracking-wider text-black mb-2">
+                <label className="block text-xs font-semibold text-zinc-700 uppercase tracking-wider mb-1.5">
                   Full Address
                 </label>
                 <textarea
@@ -350,14 +343,14 @@ GPS Coordinates: ${formData.locationType === "GPS" ? `${formData.latitude}, ${fo
                   onChange={(e) =>
                     setFormData({ ...formData, fullAddress: e.target.value })
                   }
-                  className="w-full px-4 py-3 bg-white border border-gray-300 focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] transition-colors resize-none"
-                  placeholder="Street address, apartment, postal code..."
-                ></textarea>
+                  className="w-full px-4 py-3 bg-white border border-zinc-200 rounded-xl text-sm focus:outline-none focus:border-[#4F8FA1] focus:ring-1 focus:ring-[#4F8FA1] transition-colors resize-none"
+                  placeholder="Apartment, street address, postal code..."
+                />
               </div>
 
               <div>
-                <label className="block text-sm font-bold uppercase tracking-wider text-black mb-2">
-                  Notes / Specific Requirements
+                <label className="block text-xs font-semibold text-zinc-700 uppercase tracking-wider mb-1.5">
+                  Message / Specific Requirements
                 </label>
                 <textarea
                   rows={3}
@@ -368,28 +361,49 @@ GPS Coordinates: ${formData.locationType === "GPS" ? `${formData.latitude}, ${fo
                       notesRequirements: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-3 bg-white border border-gray-300 focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] transition-colors resize-none"
-                  placeholder="Tell us details about size, media preference, deadlines..."
-                ></textarea>
+                  className="w-full px-4 py-3 bg-white border border-zinc-200 rounded-xl text-sm focus:outline-none focus:border-[#4F8FA1] focus:ring-1 focus:ring-[#4F8FA1] transition-colors resize-none"
+                  placeholder="Detail your size, prefered media, deadlines..."
+                />
               </div>
 
               <button
                 type="submit"
                 disabled={status === "loading"}
-                className="w-full flex justify-center items-center px-8 py-4 bg-black text-white font-bold uppercase tracking-widest hover:bg-[#990000] transition-colors disabled:opacity-70"
+                className="px-8 py-3 bg-[#4F8FA1] text-white font-semibold rounded-xl hover:bg-[#3D7888] transition-colors disabled:opacity-70 flex items-center justify-center gap-2 cursor-pointer shadow-sm text-sm"
               >
-                {status === "loading" ? (
-                  "Sending..."
-                ) : (
-                  <>
-                    Send Inquiry <Send className="ml-2 h-5 w-5" />
-                  </>
-                )}
+                {status === "loading" ? "Submitting..." : "Submit"}
               </button>
             </form>
           </div>
         </div>
-      </div>
+      </section>
+
+      {/* SECTION 3: Google Maps integration */}
+      <section className="max-w-5xl mx-auto my-16 px-4 sm:px-6">
+        <div className="w-full h-[320px] sm:h-[450px] rounded-[24px] overflow-hidden border border-zinc-100 shadow-lg bg-zinc-50 relative">
+          {settings?.googleMapsLink ? (
+            <iframe
+              src={settings.googleMapsLink}
+              className="w-full h-full border-0"
+              allowFullScreen={true}
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              title="Gabha Studio Location Map"
+            />
+          ) : (
+            // Fallback Google Maps iframe for Pune showroom if none set
+            <iframe
+              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3783.3813988636906!2d73.81230067583625!3d18.511634969447432!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1m3!1d1!2sKothrud%20Pune!5e0!3m2!1sen!2sin!4v1716768390000"
+              className="w-full h-full border-0"
+              allowFullScreen={true}
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              title="Fallback Pune Location Map"
+            />
+          )}
+        </div>
+      </section>
+      <AppointmentSection />
     </div>
   );
 };
