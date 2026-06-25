@@ -1,7 +1,8 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { type RootState } from './store/store';
 import { Toaster } from 'react-hot-toast';
+import { useEffect } from 'react';
 import Login from './pages/auth/Login';
 import DashboardLayout from './layouts/DashboardLayout';
 import Dashboard from './pages/dashboard/Dashboard';
@@ -38,11 +39,22 @@ import ForceChangePassword from './pages/auth/ForceChangePassword';
 import UserProfile from './pages/profile/UserProfile';
 import EmployeesList from './pages/employees/EmployeesList';
 
+function ScrollToTop() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  return null;
+}
+
 function App() {
   const { isAuthenticated } = useSelector((state: RootState) => state.auth);
 
   return (
     <Router>
+      <ScrollToTop />
       <Toaster position="top-right" />
       <Routes>
         {/* Public Routes */}
