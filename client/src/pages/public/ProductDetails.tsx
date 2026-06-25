@@ -4,6 +4,30 @@ import api from "../../api/axiosInstance";
 import InquiryModal from "../../components/public/InquiryModal";
 import { Star, ArrowLeft, ShieldCheck, Award, Sparkles } from "lucide-react";
 
+const FAQItem = ({ question, answer }: { question: string; answer: string }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  return (
+    <div className="border border-zinc-100 rounded-[16px] bg-white overflow-hidden transition-all duration-300 shadow-sm">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex justify-between items-center px-6 py-4 text-left font-sans font-medium text-zinc-800 hover:text-black transition-colors focus:outline-none"
+      >
+        <span className="text-sm sm:text-base">{question}</span>
+        <span className="text-[#8E6259] text-xl font-light transform transition-transform duration-300 select-none">
+          {isOpen ? "−" : "+"}
+        </span>
+      </button>
+      <div
+        className={`transition-all duration-300 ease-in-out ${
+          isOpen ? "max-h-[500px] border-t border-zinc-50 px-6 py-4" : "max-h-0 overflow-hidden"
+        }`}
+      >
+        <p className="text-zinc-500 text-xs sm:text-sm leading-relaxed">{answer}</p>
+      </div>
+    </div>
+  );
+};
+
 const ProductDetails = () => {
   const { id } = useParams<{ id: string }>();
   const [product, setProduct] = useState<any | null>(null);
@@ -11,6 +35,7 @@ const ProductDetails = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [inquiryModalOpen, setInquiryModalOpen] = useState(false);
+  const [activeImage, setActiveImage] = useState<string>("");
 
   useEffect(() => {
     const fetchProductData = async () => {
@@ -18,10 +43,14 @@ const ProductDetails = () => {
       setError(null);
       try {
         const productRes = await api.get(`/cms/products/${id}`);
-        setProduct(productRes.data);
+        const prodData = productRes.data;
+        setProduct(prodData);
+        
+        // Initialize active image
+        setActiveImage(prodData.productImage || prodData.images?.featuredImage?.secure_url || "");
 
         // Fetch related products (same category)
-        const categoryId = productRes.data.category?._id;
+        const categoryId = prodData.category?._id;
         if (categoryId) {
           const allProductsRes = await api.get(`/cms/products?isActive=true`);
           const filtered = allProductsRes.data.filter(
@@ -71,6 +100,25 @@ const ProductDetails = () => {
     );
   }
 
+  // Gather unique product images
+  const allImages: string[] = [];
+  if (product.productImage) allImages.push(product.productImage);
+  if (product.images?.featuredImage?.secure_url && !allImages.includes(product.images.featuredImage.secure_url)) {
+    allImages.push(product.images.featuredImage.secure_url);
+  }
+  if (product.images?.gallery) {
+    product.images.gallery.forEach((img: any) => {
+      if (img?.secure_url && !allImages.includes(img.secure_url)) {
+        allImages.push(img.secure_url);
+      }
+    });
+  }
+
+  // Determine pricing display
+  const priceVal = product.pricing?.sellingPrice !== undefined ? product.pricing.sellingPrice : product.price;
+  const mrpVal = product.pricing?.mrp;
+  const showDiscount = mrpVal && priceVal && mrpVal > priceVal;
+
   return (
     <div className="bg-white min-h-screen text-black pb-24 font-sans">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
@@ -94,15 +142,30 @@ const ProductDetails = () => {
 
         {/* Main Product Showcase Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-16 items-start">
-          {/* Left Column: Image Container */}
-          <div className="lg:col-span-6 w-full">
-            <div className="aspect-[4/5] sm:aspect-[3/4] w-full rounded-[24px] sm:rounded-[36px] overflow-hidden shadow-md border border-zinc-100 bg-[#FAF9F6] group">
+          {/* Left Column: Image Container & Gallery Row */}
+          <div className="lg:col-span-6 w-full space-y-4">
+            <div className="aspect-[4/5] sm:aspect-[3/4] w-full rounded-[24px] sm:rounded-[36px] overflow-hidden shadow-md border border-zinc-100 bg-[#FAF9F6] transition-all duration-300">
               <img
-                src={product.productImage}
+                src={activeImage}
                 alt={product.name}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover transition-opacity duration-300"
               />
             </div>
+            {allImages.length > 1 && (
+              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                {allImages.map((imgUrl, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setActiveImage(imgUrl)}
+                    className={`w-20 h-20 rounded-[12px] overflow-hidden border-2 transition-all shrink-0 cursor-pointer ${
+                      activeImage === imgUrl ? 'border-[#8E6259] scale-[0.98]' : 'border-transparent hover:border-zinc-300'
+                    }`}
+                  >
+                    <img src={imgUrl} alt={`${product.name} thumbnail ${index + 1}`} className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Right Column: Details */}
@@ -133,12 +196,24 @@ const ProductDetails = () => {
 
             {/* Price section */}
             <div className="mt-6 pb-6 border-b border-zinc-100">
-              {product.price && product.price > 0 ? (
-                <div className="flex items-baseline gap-2">
-                  <span className="text-2xl sm:text-3xl font-semibold text-zinc-900">
-                    ${product.price.toLocaleString()}
-                  </span>
-                  <span className="text-xs text-zinc-400">USD (Estimated)</span>
+              {priceVal && priceVal > 0 ? (
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-baseline gap-3">
+                    <span className="text-2xl sm:text-3xl font-semibold text-zinc-900">
+                      ₹{priceVal.toLocaleString("en-IN")}
+                    </span>
+                    {showDiscount && (
+                      <span className="text-sm sm:text-base text-zinc-400 line-through">
+                        ₹{mrpVal.toLocaleString("en-IN")}
+                      </span>
+                    )}
+                    <span className="text-xs text-zinc-400">INR (Estimated)</span>
+                  </div>
+                  {showDiscount && (
+                    <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded w-max">
+                      {product.pricing.discountPercentage}% OFF
+                    </span>
+                  )}
                 </div>
               ) : (
                 <span className="text-zinc-600 text-lg sm:text-xl font-medium italic">
@@ -166,20 +241,36 @@ const ProductDetails = () => {
               <div className="grid grid-cols-2 gap-y-3 gap-x-6 text-xs sm:text-sm">
                 <div className="flex justify-between border-b border-zinc-50 pb-1.5">
                   <span className="text-zinc-400">Material</span>
-                  <span className="font-medium text-zinc-800">Natural Organic Clay</span>
+                  <span className="font-medium text-zinc-800">
+                    {product.specifications?.material || "Natural Organic Clay"}
+                  </span>
                 </div>
                 <div className="flex justify-between border-b border-zinc-50 pb-1.5">
-                  <span className="text-zinc-400">Crafting</span>
-                  <span className="font-medium text-zinc-800">100% Hand Sculpted</span>
+                  <span className="text-zinc-400">Weight</span>
+                  <span className="font-medium text-zinc-800">
+                    {product.specifications?.weight || "Handcrafted Weight"}
+                  </span>
                 </div>
                 <div className="flex justify-between border-b border-zinc-50 pb-1.5">
-                  <span className="text-zinc-400">Kiln Fired</span>
-                  <span className="font-medium text-zinc-800">Yes (High Temp)</span>
+                  <span className="text-zinc-400">Color</span>
+                  <span className="font-medium text-zinc-800">
+                    {product.specifications?.color || "Natural Finish"}
+                  </span>
                 </div>
                 <div className="flex justify-between border-b border-zinc-50 pb-1.5">
-                  <span className="text-zinc-400">Coating</span>
-                  <span className="font-medium text-zinc-800">Matte Protective Wax</span>
+                  <span className="text-zinc-400">Manufacturer</span>
+                  <span className="font-medium text-zinc-800">
+                    {product.specifications?.manufacturer || "Gabha Studio"}
+                  </span>
                 </div>
+                {product.specifications?.dimensions && (
+                  <div className="col-span-2 flex justify-between border-b border-zinc-50 pb-1.5">
+                    <span className="text-zinc-400">Dimensions (L x W x H)</span>
+                    <span className="font-medium text-zinc-800">
+                      {product.specifications.dimensions.length || 0} x {product.specifications.dimensions.width || 0} x {product.specifications.dimensions.height || 0} cm
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -210,6 +301,105 @@ const ProductDetails = () => {
             </div>
           </div>
         </div>
+
+        {/* Dynamic Story & Craftsmanship Blocks (Description Builder) */}
+        {product.descriptionBuilder && product.descriptionBuilder.length > 0 && (
+          <div className="mt-24 pt-16 border-t border-zinc-100">
+            <h2 className="font-bodoni text-3xl sm:text-4xl text-zinc-950 font-light tracking-wide mb-12 text-center">
+              Story & Craftsmanship
+            </h2>
+            <div className="space-y-12 max-w-4xl mx-auto">
+              {product.descriptionBuilder.map((block: any, idx: number) => {
+                switch (block.type) {
+                  case 'text':
+                    return (
+                      <div key={idx} className="space-y-3">
+                        {block.data?.title && (
+                          <h3 className="font-fraunces text-xl sm:text-2xl font-semibold text-zinc-950">
+                            {block.data.title}
+                          </h3>
+                        )}
+                        <p className="text-zinc-600 text-sm sm:text-base leading-relaxed font-sans">
+                          {block.data?.text}
+                        </p>
+                      </div>
+                    );
+                  case 'richText':
+                    return (
+                      <div key={idx} className="bg-[#FAF9F6] p-6 sm:p-8 rounded-[20px] border border-zinc-100 space-y-3">
+                        {block.data?.title && (
+                          <h3 className="font-fraunces text-xl sm:text-2xl font-semibold text-[#8E6259]">
+                            {block.data.title}
+                          </h3>
+                        )}
+                        <div className="text-zinc-700 text-sm sm:text-base leading-relaxed font-sans whitespace-pre-line">
+                          {block.data?.text}
+                        </div>
+                      </div>
+                    );
+                  case 'image':
+                    return (
+                      <div key={idx} className="space-y-2">
+                        <div className="rounded-[20px] overflow-hidden shadow-sm border border-zinc-100 bg-[#FAF9F6]">
+                          <img
+                            src={block.data?.secure_url}
+                            alt={block.data?.caption || 'Artwork Detail'}
+                            className="w-full object-cover max-h-[500px]"
+                          />
+                        </div>
+                        {block.data?.caption && (
+                          <p className="text-center text-xs text-zinc-400 font-sans italic mt-1">
+                            {block.data.caption}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  case 'video':
+                    return (
+                      <div key={idx} className="space-y-2">
+                        <div className="aspect-video rounded-[20px] overflow-hidden shadow-sm border border-zinc-100">
+                          <iframe
+                            className="w-full h-full"
+                            src={block.data?.videoUrl ? block.data.videoUrl.replace("watch?v=", "embed/") : ""}
+                            title={block.data?.caption || 'Artwork Video'}
+                            frameBorder="0"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                          ></iframe>
+                        </div>
+                        {block.data?.caption && (
+                          <p className="text-center text-xs text-zinc-400 font-sans italic mt-1">
+                            {block.data.caption}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  case 'faq':
+                    return (
+                      <div key={idx} className="space-y-4">
+                        {block.data?.list && block.data.list.map((item: any, fIdx: number) => (
+                          <FAQItem key={fIdx} question={item.question} answer={item.answer} />
+                        ))}
+                      </div>
+                    );
+                  case 'specifications':
+                    return (
+                      <div key={idx} className="bg-white border border-zinc-100 rounded-[20px] overflow-hidden p-6 sm:p-8 space-y-4">
+                        {block.data?.rows && block.data.rows.map((row: any, rIdx: number) => (
+                          <div key={rIdx} className="flex justify-between border-b border-zinc-50 pb-2 text-sm">
+                            <span className="text-zinc-400">{row.label}</span>
+                            <span className="font-medium text-zinc-800">{row.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  default:
+                    return null;
+                }
+              })}
+            </div>
+          </div>
+        )}
 
         {/* SECTION 5: Related Artworks */}
         {relatedProducts.length > 0 && (
