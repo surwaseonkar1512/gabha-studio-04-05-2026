@@ -20,6 +20,7 @@ const {
   deleteCategory,
   reorderCategories,
   getProducts,
+  getProduct,
   createProduct,
   updateProduct,
   deleteProduct,
@@ -66,6 +67,7 @@ router.get('/about', getAboutUs);
 router.get('/gallery', getGalleries);
 router.get('/categories', getCategories);
 router.get('/products', getProducts);
+router.get('/products/:id', getProduct);
 router.get('/instagram', getInstagramItems);
 router.get('/testimonials', getTestimonials);
 router.get('/settings', getSiteSettings);
