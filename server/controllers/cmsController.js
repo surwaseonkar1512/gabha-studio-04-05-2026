@@ -9,6 +9,7 @@ const InstagramGallery = require('../models/InstagramGallery');
 const Testimonial = require('../models/Testimonial');
 const SiteSettings = require('../models/SiteSettings');
 const SpaceByGabha = require('../models/SpaceByGabha');
+const JourneyMilestone = require('../models/JourneyMilestone');
 const cloudinary = require('../config/cloudinary');
 
 // Helper to upload buffer to Cloudinary
@@ -976,6 +977,72 @@ const updateSpaceByGabha = async (req, res) => {
   }
 };
 
+const getJourneyMilestones = async (req, res) => {
+  try {
+    const milestones = await JourneyMilestone.find().sort({ displayOrder: 1, createdAt: -1 });
+    res.status(200).json(milestones);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const createJourneyMilestone = async (req, res) => {
+  try {
+    const count = await JourneyMilestone.countDocuments();
+    const milestone = new JourneyMilestone({
+      ...req.body,
+      displayOrder: req.body.displayOrder || count
+    });
+    await milestone.save();
+    res.status(201).json(milestone);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+const updateJourneyMilestone = async (req, res) => {
+  try {
+    const milestone = await JourneyMilestone.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    );
+    if (!milestone) {
+      return res.status(404).json({ message: 'Milestone not found' });
+    }
+    res.status(200).json(milestone);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+const deleteJourneyMilestone = async (req, res) => {
+  try {
+    const milestone = await JourneyMilestone.findByIdAndDelete(req.params.id);
+    if (!milestone) {
+      return res.status(404).json({ message: 'Milestone not found' });
+    }
+    res.status(200).json({ message: 'Milestone deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const reorderJourneyMilestones = async (req, res) => {
+  try {
+    const { orders } = req.body;
+    if (!orders || !Array.isArray(orders)) {
+      return res.status(400).json({ message: 'Invalid orders data' });
+    }
+    for (const item of orders) {
+      await JourneyMilestone.findByIdAndUpdate(item.id, { displayOrder: item.displayOrder });
+    }
+    res.status(200).json({ message: 'Milestones reordered successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   uploadSingle,
   uploadMultiple,
@@ -1023,5 +1090,10 @@ module.exports = {
   getProductReviews,
   createProductReview,
   getSpaceByGabha,
-  updateSpaceByGabha
+  updateSpaceByGabha,
+  getJourneyMilestones,
+  createJourneyMilestone,
+  updateJourneyMilestone,
+  deleteJourneyMilestone,
+  reorderJourneyMilestones
 };

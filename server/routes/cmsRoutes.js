@@ -47,7 +47,12 @@ const {
   getProductReviews,
   createProductReview,
   getSpaceByGabha,
-  updateSpaceByGabha
+  updateSpaceByGabha,
+  getJourneyMilestones,
+  createJourneyMilestone,
+  updateJourneyMilestone,
+  deleteJourneyMilestone,
+  reorderJourneyMilestones
 } = require('../controllers/cmsController');
 
 const { protect, checkPermission } = require('../middleware/authMiddleware');
@@ -65,6 +70,7 @@ router.get('/instagram', getInstagramItems);
 router.get('/testimonials', getTestimonials);
 router.get('/settings', getSiteSettings);
 router.get('/space-by-gabha', getSpaceByGabha);
+router.get('/journey', getJourneyMilestones);
 
 // Storefront & Reviews public access
 router.get('/products/storefront', getStorefrontProducts);
@@ -130,5 +136,11 @@ router.put('/settings', checkPermission('cms', 'edit'), updateSiteSettings);
 
 // Space By Gabha
 router.put('/space-by-gabha', checkPermission('cms', 'edit'), updateSpaceByGabha);
+
+// Journey timeline milestones
+router.post('/journey', checkPermission('cms', 'add'), createJourneyMilestone);
+router.put('/journey/reorder', checkPermission('cms', 'edit'), reorderJourneyMilestones);
+router.put('/journey/:id', checkPermission('cms', 'edit'), updateJourneyMilestone);
+router.delete('/journey/:id', checkPermission('cms', 'delete'), deleteJourneyMilestone);
 
 module.exports = router;

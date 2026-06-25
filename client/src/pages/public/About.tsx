@@ -120,23 +120,26 @@ const About = () => {
       <section className="py-16 bg-white relative overflow-hidden px-4 sm:px-6">
         <div className="max-w-5xl mx-auto relative">
           
-          {/* Vertical Center Strip */}
-          <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-[60px] sm:w-[90px] lg:w-[120px] bg-[#E5ECF4] -z-10 rounded-full" />
+          {/* Vertical Center Strip (Desktop) */}
+          <div className="hidden md:block absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-[70px] bg-[#DEECF4]/60 -z-10" />
+
+          {/* Vertical Left Strip (Mobile) */}
+          <div className="block md:hidden absolute top-0 bottom-0 left-[35px] w-[50px] bg-[#DEECF4]/60 -z-10" />
 
           {/* Timeline Milestones list */}
-          <div className="space-y-16 sm:space-y-24 lg:space-y-32 relative z-10">
+          <div className="space-y-16 md:space-y-28 relative z-10">
             {displayMilestones.map((m, idx) => {
               const isEven = idx % 2 === 0;
               return (
                 <div 
                   key={m._id}
-                  className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center"
+                  className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-12 items-center"
                 >
                   {isEven ? (
                     <>
-                      {/* Image (left) */}
-                      <div className="md:col-span-6 flex justify-end order-1 md:order-1">
-                        <div className="w-full max-w-[400px] aspect-[4/3] rounded-3xl overflow-hidden shadow-lg border border-zinc-100 bg-white group">
+                      {/* Image (left on desktop, top on mobile) */}
+                      <div className="md:col-span-6 flex justify-start md:justify-end order-1 md:order-1 pl-[70px] md:pl-0">
+                        <div className="w-full max-w-[400px] aspect-[4/3] rounded-2xl overflow-hidden shadow-md border border-zinc-100 bg-white group">
                           <img 
                             src={m.image || '/sculpture_family_art.png'} 
                             alt={m.title}
@@ -145,18 +148,18 @@ const About = () => {
                         </div>
                       </div>
 
-                      {/* Text (right) */}
-                      <div className="md:col-span-5 md:col-start-8 text-left order-2 md:order-2 px-4">
+                      {/* Text (right on desktop, bottom on mobile) */}
+                      <div className="md:col-span-5 md:col-start-8 text-left order-2 md:order-2 px-4 pl-[70px] md:pl-4">
                         <h3 className="font-serif text-[#9E7A68] text-lg sm:text-xl lg:text-2xl font-light mb-2">
                           {m.title}
                         </h3>
-                        <p className="text-zinc-500 font-sans text-xs sm:text-sm leading-relaxed mb-6 font-light">
+                        <p className="text-zinc-500 font-sans text-xs sm:text-sm leading-relaxed mb-4 font-light">
                           {m.description}
                         </p>
                         <div className="select-none leading-none">
                           <span 
-                            className="text-6xl sm:text-7xl lg:text-8xl font-light tracking-wide text-transparent font-serif"
-                            style={{ WebkitTextStroke: "1.5px #9E7A68" }}
+                            className="text-6xl sm:text-7xl lg:text-8xl font-light tracking-wide text-transparent font-bodoni"
+                            style={{ WebkitTextStroke: "1px #1A1A1A" }}
                           >
                             {m.year}
                           </span>
@@ -165,27 +168,27 @@ const About = () => {
                     </>
                   ) : (
                     <>
-                      {/* Text (left) */}
-                      <div className="md:col-span-5 md:col-start-1 text-left order-2 md:order-1 px-4">
+                      {/* Text (left on desktop, bottom on mobile) - right aligned on desktop, left on mobile */}
+                      <div className="md:col-span-5 md:col-start-1 text-left md:text-right order-2 md:order-1 px-4 pl-[70px] md:pl-4">
                         <h3 className="font-serif text-[#9E7A68] text-lg sm:text-xl lg:text-2xl font-light mb-2">
                           {m.title}
                         </h3>
-                        <p className="text-zinc-500 font-sans text-xs sm:text-sm leading-relaxed mb-6 font-light">
+                        <p className="text-zinc-500 font-sans text-xs sm:text-sm leading-relaxed mb-4 font-light">
                           {m.description}
                         </p>
                         <div className="select-none leading-none">
                           <span 
-                            className="text-6xl sm:text-7xl lg:text-8xl font-light tracking-wide text-transparent font-serif"
-                            style={{ WebkitTextStroke: "1.5px #9E7A68" }}
+                            className="text-6xl sm:text-7xl lg:text-8xl font-light tracking-wide text-transparent font-bodoni"
+                            style={{ WebkitTextStroke: "1px #1A1A1A" }}
                           >
                             {m.year}
                           </span>
                         </div>
                       </div>
 
-                      {/* Image (right) */}
-                      <div className="md:col-span-6 md:col-start-7 flex justify-start order-1 md:order-2">
-                        <div className="w-full max-w-[400px] aspect-[4/3] rounded-3xl overflow-hidden shadow-lg border border-zinc-100 bg-white group">
+                      {/* Image (right on desktop, top on mobile) */}
+                      <div className="md:col-span-6 md:col-start-7 flex justify-start order-1 md:order-2 pl-[70px] md:pl-0">
+                        <div className="w-full max-w-[400px] aspect-[4/3] rounded-2xl overflow-hidden shadow-md border border-zinc-100 bg-white group">
                           <img 
                             src={m.image || '/sculpture_family_art.png'} 
                             alt={m.title}
