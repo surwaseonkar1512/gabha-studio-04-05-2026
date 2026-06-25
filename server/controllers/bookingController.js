@@ -3,7 +3,8 @@ const Lead = require('../models/Lead');
 const Quotation = require('../models/Quotation');
 const SiteSettings = require('../models/SiteSettings');
 const cloudinary = require('../config/cloudinary');
-const { generatePDF } = require('../utils/pdfKitGenerator');
+const puppeteer = require('puppeteer');
+const { generatePDFHTML } = require('../utils/pdfTemplate');
 
 const uploadToCloudinary = (buffer) => {
   return new Promise((resolve, reject) => {
@@ -207,16 +208,22 @@ const generateInvoicePDF = async (req, res) => {
       logoUrl: settings.websiteLogo,
       signatureUrl: settings.ownerSignature,
       stampUrl: settings.companyStamp,
-      upiId: settings.upiId,
-      upiQrUrl: settings.upiQrCode,
-      bankAccountName: settings.bankAccountName,
-      bankName: settings.bankName,
-      bankAccountNumber: settings.bankAccountNumber,
-      bankIfscCode: settings.bankIfscCode,
-      gstNumber: settings.gstNumber,
     };
 
-    const pdfBuffer = await generatePDF(data);
+    const htmlContent = generatePDFHTML(data);
+
+    const browser = await puppeteer.launch({
+      headless: 'new',
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
+    const page = await browser.newPage();
+    await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: { top: '0', right: '0', bottom: '0', left: '0' }
+    });
+    await browser.close();
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="Invoice_${payment.invoiceNumber}.pdf"`);

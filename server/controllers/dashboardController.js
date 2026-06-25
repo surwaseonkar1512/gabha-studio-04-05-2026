@@ -2,9 +2,6 @@ const Booking = require('../models/Booking');
 const Lead = require('../models/Lead');
 const Expense = require('../models/Expense');
 const Product = require('../models/Product');
-const Contact = require('../models/Contact');
-const Newsletter = require('../models/Newsletter');
-const Quotation = require('../models/Quotation');
 
 // @desc    Get dashboard analytics
 // @route   GET /api/dashboard
@@ -13,6 +10,9 @@ const getDashboardData = async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
     
+    // ----------------------------------------------------
+    // DATE FILTERS
+    // ----------------------------------------------------
     let dateFilter = {};
     let isDateFiltered = false;
     if (startDate && endDate) {
@@ -32,36 +32,30 @@ const getDashboardData = async (req, res) => {
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     const startOfYear = new Date(today.getFullYear(), 0, 1);
 
-    // Numeric Metrics
-    const totalLeads = await Lead.countDocuments(dateFilter);
-    const newLeads = await Lead.countDocuments({ ...dateFilter, status: 'New' });
-    const totalContactUs = await Contact.countDocuments(dateFilter);
-    const newContactUs = await Contact.countDocuments({ ...dateFilter, status: 'New' });
-    const totalSubscribers = await Newsletter.countDocuments(dateFilter);
-    const activeSubscribers = await Newsletter.countDocuments({ ...dateFilter, status: 'Active' });
+    // ----------------------------------------------------
+    // DB QUERIES (Fetch raw data for in-memory JS processing)
+    // ----------------------------------------------------
+    // We fetch ALL leads to calculate absolute time metrics easily,
+    // or we can run separate count queries. Since datasets might be small, 
+    // let's do targeted counts for absolute time metrics to be safe.
     
-    // Quotations
-    const quotationsSent = await Quotation.countDocuments({ ...dateFilter, status: 'Sent' });
-    const quotationsApproved = await Quotation.countDocuments({ ...dateFilter, status: 'Approved' });
-    const wonDeals = await Lead.countDocuments({ ...dateFilter, status: 'Won' });
-
-    // Calculate revenue from approved quotations
-    const approvedQuotations = await Quotation.find({ ...dateFilter, status: 'Approved' });
-    const revenue = approvedQuotations.reduce((sum, q) => sum + (q.total || 0), 0);
-
-    // Existing collections
+    // Absolute Time Metrics (Leads)
     const leadsToday = await Lead.countDocuments({ createdAt: { $gte: today } });
     const leadsThisWeek = await Lead.countDocuments({ createdAt: { $gte: startOfWeek } });
     const leadsThisMonth = await Lead.countDocuments({ createdAt: { $gte: startOfMonth } });
     const leadsThisYear = await Lead.countDocuments({ createdAt: { $gte: startOfYear } });
     
+    // Filtered Datasets
     const leads = await Lead.find(dateFilter);
     const expenses = await Expense.find(dateFilter ? {
       date: { $gte: new Date(startDate), $lte: new Date(endDate) }
     } : {});
+    // We need all bookings for some customer insights, but let's filter what we can
     const allBookings = await Booking.find().populate('lead');
     
-    // Lead Analytics
+    // ----------------------------------------------------
+    // LEAD ANALYTICS
+    // ----------------------------------------------------
     const totalNewLeads = leads.length;
     let contactedCount = 0;
     let quotedCount = 0;
@@ -71,9 +65,10 @@ const getDashboardData = async (req, res) => {
     const sourceMap = {};
 
     leads.forEach(l => {
-      if (['Contacted', 'Quotation Sent', 'Negotiation', 'Won', 'Lost'].includes(l.status)) contactedCount++;
-      if (['Quotation Sent', 'Negotiation', 'Won'].includes(l.status)) quotedCount++;
-      if (l.status === 'Won') convertedCount++;
+      if (['Contacted', 'Quote Sent', 'Booking', 'Completed'].includes(l.stage)) contactedCount++;
+      if (['Quote Sent', 'Booking', 'Completed'].includes(l.stage)) quotedCount++;
+      if (['Booking', 'Completed'].includes(l.stage)) convertedCount++;
+      if (l.stage === 'Completed') completedCount++;
       if (l.quotationSkipped) withoutQuotationCount++;
       
       const s = l.source || 'Unknown';
@@ -92,14 +87,17 @@ const getDashboardData = async (req, res) => {
       }
     });
 
-    // Booking Analytics
+    // ----------------------------------------------------
+    // BOOKING ANALYTICS
+    // ----------------------------------------------------
+    // Filter bookings based on global date filter (createdAt)
     const filteredBookings = isDateFiltered 
       ? allBookings.filter(b => b.createdAt >= new Date(startDate) && b.createdAt <= new Date(endDate))
       : allBookings;
 
     const totalBookings = filteredBookings.length;
     const activeBookings = filteredBookings.filter(b => b.status === 'Active');
-    const pendingBookings = activeBookings.length;
+    const pendingBookings = activeBookings.length; // Same as active for now
     const completedBookings = filteredBookings.filter(b => b.status === 'Completed').length;
     const cancelledBookings = filteredBookings.filter(b => b.status === 'Cancelled').length;
     const bookingCompletionRate = totalBookings > 0 ? Math.round((completedBookings / totalBookings) * 100) : 0;
@@ -112,11 +110,13 @@ const getDashboardData = async (req, res) => {
     });
     const avgBookingValue = totalBookings > 0 ? Math.round(totalBookingValue / totalBookings) : 0;
 
-    // Revenue Trends
-    let totalRevenue = revenue;
+    // ----------------------------------------------------
+    // REVENUE & PAYMENT ANALYTICS
+    // ----------------------------------------------------
+    let totalRevenue = 0;
     let advanceCollected = 0;
     let finalCollected = 0;
-    const monthlyDataMap = {};
+    const monthlyDataMap = {}; // Time series
 
     allBookings.forEach(booking => {
       booking.payments.forEach((payment, index) => {
@@ -127,6 +127,7 @@ const getDashboardData = async (req, res) => {
         }
 
         if (inRange) {
+          totalRevenue += payment.amount;
           if (index === 0) advanceCollected += payment.amount;
           if (payment.isFinal) finalCollected += payment.amount;
 
@@ -137,7 +138,7 @@ const getDashboardData = async (req, res) => {
       });
     });
 
-    // Top pending payments
+    // Top pending payments (Calculated over ALL active bookings, regardless of date filter)
     let totalPendingPayment = 0;
     const pendingList = [];
     allBookings.filter(b => b.status === 'Active').forEach(b => {
@@ -155,11 +156,14 @@ const getDashboardData = async (req, res) => {
       }
     });
 
+    // Sort pending list by highest pending amount
     pendingList.sort((a, b) => b.pending - a.pending);
-    const topPendingPayments = pendingList.slice(0, 5);
+    const topPendingPayments = pendingList.slice(0, 5); // Top 5
     const mostPendingCustomer = pendingList.length > 0 ? { name: pendingList[0].customerName, amount: pendingList[0].pending } : null;
 
-    // Expense Analytics
+    // ----------------------------------------------------
+    // EXPENSE ANALYTICS
+    // ----------------------------------------------------
     let totalExpenses = 0;
     const expensesByCategory = {};
 
@@ -178,7 +182,9 @@ const getDashboardData = async (req, res) => {
       value: expensesByCategory[key]
     })).sort((a, b) => b.value - a.value);
 
-    // Monthly trends
+    // ----------------------------------------------------
+    // MONTHLY TRENDS (Revenue vs Expenses)
+    // ----------------------------------------------------
     const monthlyData = Object.values(monthlyDataMap).sort((a, b) => a.name.localeCompare(b.name));
     let highestRevMonth = { name: 'N/A', revenue: 0 };
     let lowestRevMonth = { name: 'N/A', revenue: Infinity };
@@ -191,8 +197,10 @@ const getDashboardData = async (req, res) => {
 
     const netProfit = totalRevenue - totalExpenses;
 
-    // Customer Insights
-    const customerStats = {};
+    // ----------------------------------------------------
+    // CUSTOMER INSIGHTS
+    // ----------------------------------------------------
+    const customerStats = {}; // Map leadId -> { name, revenue, bookingsCount }
     allBookings.forEach(b => {
       if (b.lead) {
         const id = b.lead._id.toString();
@@ -214,13 +222,14 @@ const getDashboardData = async (req, res) => {
       if (c.bookingsCount > 1) repeatCount++;
     });
 
+    // Calculate upcoming deliveries count
     const upcomingDeliveriesCount = allBookings.filter(b => 
       b.status === 'Active' && 
       b.deliveryDate && 
       new Date(b.deliveryDate) >= today
     ).length;
 
-    // Products interest
+    // Calculate product interest count (leads by product name)
     const productMap = {};
     leads.forEach(l => {
       const p = l.productName || 'General Service';
@@ -231,6 +240,7 @@ const getDashboardData = async (req, res) => {
       value: productMap[key]
     })).sort((a, b) => b.value - a.value);
 
+    // Calculate low stock products count
     const lowStockCount = await Product.countDocuments({
       $expr: {
         $lte: ['$inventory.availableStock', '$inventory.lowStockThreshold']
@@ -238,88 +248,13 @@ const getDashboardData = async (req, res) => {
     });
 
     // ----------------------------------------------------
-    // CHARTS DATA
+    // FINAL RESPONSE BUILDER
     // ----------------------------------------------------
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-
-    // Leads by Month
-    const leadsHistory = await Lead.find({ createdAt: { $gte: sixMonthsAgo } });
-    const leadsByMonthMap = {};
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date();
-      d.setMonth(d.getMonth() - i);
-      const monthKey = d.toLocaleString('en-US', { month: 'short', year: 'numeric' });
-      leadsByMonthMap[monthKey] = 0;
-    }
-    leadsHistory.forEach(l => {
-      const monthKey = new Date(l.createdAt).toLocaleString('en-US', { month: 'short', year: 'numeric' });
-      if (leadsByMonthMap[monthKey] !== undefined) {
-        leadsByMonthMap[monthKey]++;
-      }
-    });
-    const leadsByMonth = Object.keys(leadsByMonthMap).map(key => ({
-      month: key,
-      count: leadsByMonthMap[key]
-    }));
-
-    // Revenue Analytics Chart (by Month)
-    const quotationsHistory = await Quotation.find({ createdAt: { $gte: sixMonthsAgo }, status: 'Approved' });
-    const revenueByMonthMap = {};
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date();
-      d.setMonth(d.getMonth() - i);
-      const monthKey = d.toLocaleString('en-US', { month: 'short', year: 'numeric' });
-      revenueByMonthMap[monthKey] = 0;
-    }
-    quotationsHistory.forEach(q => {
-      const monthKey = new Date(q.createdAt).toLocaleString('en-US', { month: 'short', year: 'numeric' });
-      if (revenueByMonthMap[monthKey] !== undefined) {
-        revenueByMonthMap[monthKey] += q.total || 0;
-      }
-    });
-    const revenueByMonth = Object.keys(revenueByMonthMap).map(key => ({
-      month: key,
-      revenue: revenueByMonthMap[key]
-    }));
-
-    // Lead Status Distribution
-    const statusCounts = {
-      'New': await Lead.countDocuments({ status: 'New' }),
-      'Contacted': await Lead.countDocuments({ status: 'Contacted' }),
-      'Quotation Sent': await Lead.countDocuments({ status: 'Quotation Sent' }),
-      'Negotiation': await Lead.countDocuments({ status: 'Negotiation' }),
-      'Won': await Lead.countDocuments({ status: 'Won' }),
-      'Lost': await Lead.countDocuments({ status: 'Lost' })
-    };
-    const leadStatusDistribution = Object.keys(statusCounts).map(key => ({
-      status: key,
-      count: statusCounts[key]
-    }));
-
     res.json({
-      metrics: {
-        totalLeads,
-        newLeads,
-        totalContactUs,
-        newContactUs,
-        totalSubscribers,
-        activeSubscribers,
-        quotationsSent,
-        quotationsApproved,
-        wonDeals,
-        revenue
-      },
-      charts: {
-        leadsByMonth,
-        leadsByProduct: productAnalyticsData,
-        leadStatusDistribution,
-        revenueByMonth
-      },
       overview: {
-        totalRevenue: revenue,
+        totalRevenue,
         totalExpenses,
-        netProfit: revenue - totalExpenses,
+        netProfit,
         conversionRate,
         activeBookings: pendingBookings,
         lowStockCount
@@ -375,7 +310,7 @@ const getDashboardData = async (req, res) => {
       },
       customerInsights: {
         mostValuable: { name: mostValuable.name, revenue: mostValuable.revenue },
-        highestPaying: { name: mostValuable.name, revenue: mostValuable.revenue },
+        highestPaying: { name: mostValuable.name, revenue: mostValuable.revenue }, // Same as most valuable for now
         repeatCustomers: repeatCount,
         mostActive: mostActiveCust
       }
@@ -387,74 +322,6 @@ const getDashboardData = async (req, res) => {
   }
 };
 
-const getCustomersList = async (req, res, next) => {
-  try {
-    const leads = await Lead.find({}).lean();
-    const bookings = await Booking.find({}).lean();
-    const quotations = await Quotation.find({}).lean();
-
-    const customersMap = {};
-
-    leads.forEach(l => {
-      const key = (l.phone || l.email || l._id.toString()).trim().toLowerCase();
-      if (!customersMap[key]) {
-        customersMap[key] = {
-          name: l.name,
-          phone: l.phone,
-          email: l.email || 'N/A',
-          location: l.location || 'N/A',
-          leadsCount: 0,
-          quotesCount: 0,
-          bookingsCount: 0,
-          totalPaid: 0,
-          totalBooked: 0,
-          latestStage: l.stage,
-          createdAt: l.createdAt
-        };
-      } else {
-        if (new Date(l.createdAt) > new Date(customersMap[key].createdAt)) {
-          customersMap[key].latestStage = l.stage;
-          customersMap[key].createdAt = l.createdAt;
-        }
-      }
-      customersMap[key].leadsCount += 1;
-    });
-
-    quotations.forEach(q => {
-      if (q.leadId) {
-        const lead = leads.find(l => l._id.toString() === q.leadId.toString());
-        if (lead) {
-          const key = (lead.phone || lead.email || lead._id.toString()).trim().toLowerCase();
-          if (customersMap[key]) {
-            customersMap[key].quotesCount += 1;
-          }
-        }
-      }
-    });
-
-    bookings.forEach(b => {
-      let lead = null;
-      if (b.lead) {
-        lead = leads.find(l => l._id.toString() === b.lead.toString());
-      }
-      if (lead) {
-        const key = (lead.phone || lead.email || lead._id.toString()).trim().toLowerCase();
-        if (customersMap[key]) {
-          customersMap[key].bookingsCount += 1;
-          customersMap[key].totalPaid += b.paidAmount || 0;
-          customersMap[key].totalBooked += b.totalAmount || 0;
-        }
-      }
-    });
-
-    const customersList = Object.values(customersMap).sort((a, b) => b.totalBooked - a.totalBooked);
-    res.json(customersList);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
 module.exports = {
-  getDashboardData,
-  getCustomersList
+  getDashboardData
 };

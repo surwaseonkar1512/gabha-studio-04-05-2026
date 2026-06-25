@@ -36,16 +36,7 @@ const checkPermission = (module, action) => {
       return next(); // Super admin has all permissions
     }
 
-    const userPerms = req.user.permissions?.[module] || [];
-
-    // Normalize action aliases for backward compatibility
-    let actionsToCheck = [action];
-    if (action === 'create') actionsToCheck.push('add');
-    if (action === 'add') actionsToCheck.push('create');
-    if (action === 'edit') actionsToCheck.push('update');
-    if (action === 'update') actionsToCheck.push('edit');
-
-    const hasPermission = actionsToCheck.some(act => userPerms.includes(act));
+    const hasPermission = req.user.permissions && req.user.permissions[module] && req.user.permissions[module].includes(action);
     if (!hasPermission) {
       return res.status(403).json({ message: `Not authorized to perform ${action} on ${module}` });
     }

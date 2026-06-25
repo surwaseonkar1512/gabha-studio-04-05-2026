@@ -8,7 +8,6 @@ const ProductAnalytics = require('../models/ProductAnalytics');
 const InstagramGallery = require('../models/InstagramGallery');
 const Testimonial = require('../models/Testimonial');
 const SiteSettings = require('../models/SiteSettings');
-const Journey = require('../models/Journey');
 const cloudinary = require('../config/cloudinary');
 
 // Helper to upload buffer to Cloudinary
@@ -300,17 +299,6 @@ const getProducts = async (req, res) => {
       .sort({ displayOrder: 1 });
       
     res.status(200).json(products);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-const getProductById = async (req, res) => {
-  try {
-    const product = await Product.findById(req.params.id)
-      .populate('category', 'title slug');
-    if (!product) return res.status(404).json({ message: 'Product not found' });
-    res.status(200).json(product);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -812,65 +800,6 @@ const createProductReview = async (req, res) => {
   }
 };
 
-// --- JOURNEY CONTROLLERS ---
-const getJourneys = async (req, res) => {
-  try {
-    const journeys = await Journey.find().sort({ displayOrder: 1 });
-    res.status(200).json(journeys);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-const createJourney = async (req, res) => {
-  try {
-    const journey = await Journey.create(req.body);
-    res.status(201).json(journey);
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
-};
-
-const updateJourney = async (req, res) => {
-  try {
-    const journey = await Journey.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!journey) return res.status(404).json({ message: 'Journey milestone not found' });
-    res.status(200).json(journey);
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
-};
-
-const deleteJourney = async (req, res) => {
-  try {
-    const journey = await Journey.findById(req.params.id);
-    if (!journey) return res.status(404).json({ message: 'Journey milestone not found' });
-    await journey.deleteOne();
-    res.status(200).json({ message: 'Journey milestone deleted' });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-const reorderJourneys = async (req, res) => {
-  try {
-    const { orders } = req.body;
-    if (!orders || !Array.isArray(orders)) {
-      return res.status(400).json({ message: 'Invalid order list' });
-    }
-    const bulkOps = orders.map(o => ({
-      updateOne: {
-        filter: { _id: o.id },
-        update: { displayOrder: o.displayOrder }
-      }
-    }));
-    await Journey.bulkWrite(bulkOps);
-    res.status(200).json({ message: 'Journeys reordered' });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
 module.exports = {
   uploadSingle,
   uploadMultiple,
@@ -892,7 +821,6 @@ module.exports = {
   deleteCategory,
   reorderCategories,
   getProducts,
-  getProductById,
   createProduct,
   updateProduct,
   deleteProduct,
@@ -917,10 +845,5 @@ module.exports = {
   updateReviewStatus,
   deleteReview,
   getProductReviews,
-  createProductReview,
-  getJourneys,
-  createJourney,
-  updateJourney,
-  deleteJourney,
-  reorderJourneys
+  createProductReview
 };

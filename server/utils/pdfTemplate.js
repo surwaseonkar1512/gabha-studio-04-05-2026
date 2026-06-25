@@ -871,28 +871,21 @@ function generatePDFHTML(data) {
       <div class="totals-col">
         <table class="items-table">
           <tbody>
-            <tr class="total-row">
-              <td class="total-label" colspan="1" style="padding-top:12px; padding-bottom:8px;">SUBTOTAL</td>
-              <td class="total-value" style="padding-top:12px; padding-bottom:8px; width:160px;">₹ ${fmt(data.subTotal)}</td>
-            </tr>
-            ${data.discount ? `
-            <tr class="total-row">
-              <td class="total-label" style="padding-top:8px; padding-bottom:8px;">DISCOUNT</td>
-              <td class="total-value" style="padding-top:8px; padding-bottom:8px; color: #c2410c;">- ₹ ${fmt(data.discount)}</td>
-            </tr>
-            ` : ''}
             ${data.gstEnabled || data.gstAmount > 0 ? `
             <tr class="total-row">
-              <td class="total-label" style="padding-top:8px; padding-bottom:8px;">GST (${data.gstPercentage}%)</td>
-              <td class="total-value" style="padding-top:8px; padding-bottom:8px;">₹ ${fmt(data.gstAmount)}</td>
+              <td class="total-label" colspan="1" style="padding-top:18px; padding-bottom:14px;">SUBTOTAL</td>
+              <td class="total-value" style="padding-top:18px; padding-bottom:14px; width:160px;">₹ ${fmt(data.subTotal)}</td>
             </tr>
-            ` : ''}
-            ${data.shipping ? `
             <tr class="total-row">
-              <td class="total-label" style="padding-top:8px; padding-bottom:8px;">SHIPPING</td>
-              <td class="total-value" style="padding-top:8px; padding-bottom:8px;">₹ ${fmt(data.shipping)}</td>
+              <td class="total-label" style="padding-top:14px; padding-bottom:18px;">GST (${data.gstPercentage}%)</td>
+              <td class="total-value" style="padding-top:14px; padding-bottom:18px;">₹ ${fmt(data.gstAmount)}</td>
             </tr>
-            ` : ''}
+            ` : `
+            <tr class="total-row">
+              <td class="total-label" colspan="1" style="padding-top:18px; padding-bottom:14px;">SUBTOTAL</td>
+              <td class="total-value" style="padding-top:18px; padding-bottom:14px; width:160px;">₹ ${fmt(data.subTotal)}</td>
+            </tr>
+            `}
             <tr class="grand-total-row">
               <td class="gt-label">GRAND TOTAL</td>
               <td class="gt-value">₹ ${fmt(data.total)}</td>
@@ -946,25 +939,20 @@ function generatePDFHTML(data) {
         </div>
         <span>Bank Details</span>
       </div>
-      <div class="bank-row"><span class="bank-key">Account Name</span><span class="bank-colon">:</span><span class="bank-val">${data.bankAccountName || 'Gabha Studio'}</span></div>
-      <div class="bank-row"><span class="bank-key">Bank Name</span><span class="bank-colon">:</span><span class="bank-val">${data.bankName || 'HDFC Bank'}</span></div>
-      <div class="bank-row"><span class="bank-key">Account No.</span><span class="bank-colon">:</span><span class="bank-val">${data.bankAccountNumber || '1234 5678 9012'}</span></div>
-      <div class="bank-row"><span class="bank-key">IFSC Code</span><span class="bank-colon">:</span><span class="bank-val">${data.bankIfscCode || 'HDFC0001234'}</span></div>
-      <div class="bank-row"><span class="bank-key">UPI ID</span><span class="bank-colon">:</span><span class="bank-val">${data.upiId || 'gabhastudio@hdfc'}</span></div>
-      ${data.gstNumber ? `<div class="bank-row"><span class="bank-key">GSTIN</span><span class="bank-colon">:</span><span class="bank-val">${data.gstNumber}</span></div>` : ''}
+      <div class="bank-row"><span class="bank-key">Account Name</span><span class="bank-colon">:</span><span class="bank-val">Gabha Studio</span></div>
+      <div class="bank-row"><span class="bank-key">Bank Name</span><span class="bank-colon">:</span><span class="bank-val">HDFC Bank</span></div>
+      <div class="bank-row"><span class="bank-key">Account No.</span><span class="bank-colon">:</span><span class="bank-val">1234 5678 9012</span></div>
+      <div class="bank-row"><span class="bank-key">IFSC Code</span><span class="bank-colon">:</span><span class="bank-val">HDFC0001234</span></div>
+      <div class="bank-row"><span class="bank-key">UPI ID</span><span class="bank-colon">:</span><span class="bank-val">gabhastudio@hdfc</span></div>
     </div>
 
     <!-- QR Code -->
     <div class="qr-col">
       <div class="qr-label">Scan to Pay</div>
       <div class="qr-placeholder">
-        ${data.upiQrUrl ? `
-          <img src="${data.upiQrUrl}" alt="UPI QR Code" style="width:100%; height:100%; object-fit:contain;" />
-        ` : `
-          <canvas id="qrCanvas" width="86" height="86"></canvas>
-        `}
+        <canvas id="qrCanvas" width="86" height="86"></canvas>
       </div>
-      <div class="qr-upi">UPI ID: ${data.upiId || 'gabhastudio@hdfc'}</div>
+      <div class="qr-upi">UPI ID: gabhastudio@hdfc</div>
     </div>
   </div>
 

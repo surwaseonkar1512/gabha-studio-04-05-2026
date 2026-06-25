@@ -1,8 +1,9 @@
 const Quotation = require('../models/Quotation');
 const Lead = require('../models/Lead');
 const SiteSettings = require('../models/SiteSettings');
-const { generatePDF } = require('../utils/pdfKitGenerator');
-
+const cloudinary = require('../config/cloudinary');
+const puppeteer = require('puppeteer');
+const { generatePDFHTML } = require('../utils/pdfTemplate');
 // @desc    Create a new quotation
 // @route   POST /api/quotations
 // @access  Private
@@ -14,10 +15,7 @@ const createQuotation = async (req, res) => {
       gstEnabled,
       gstPercentage = 18,
       notes,
-      status,
-      discount = 0,
-      shipping = 0,
-      terms
+      status
     } = req.body;
 
     if (!leadId) {
@@ -38,8 +36,8 @@ const createQuotation = async (req, res) => {
     const quotationNumber = `GS-${(count + 1).toString().padStart(4, '0')}`;
 
     const subTotal = items.reduce((acc, item) => acc + Number(item.amount), 0);
-    const gstAmount = gstEnabled ? (subTotal - Number(discount)) * (Number(gstPercentage) / 100) : 0;
-    const total = subTotal - Number(discount) + gstAmount + Number(shipping);
+    const gstAmount = gstEnabled ? subTotal * (gstPercentage / 100) : 0;
+    const total = subTotal + gstAmount;
 
     const quotation = await Quotation.create({
       quotationNumber,
@@ -56,16 +54,12 @@ const createQuotation = async (req, res) => {
       gstPercentage: Number(gstPercentage),
       subTotal,
       gstAmount,
-      discount: Number(discount),
-      shipping: Number(shipping),
       total,
-      terms: terms || []
     });
 
-    // Advance lead stage & status
-    const newStage = 'Quote Sent';
-    const newStatus = 'Quotation Sent';
-    await Lead.updateOne({ _id: leadId }, { hasQuotation: true, stage: newStage, status: newStatus });
+    // Advance lead stage
+    const newStage = (lead.stage === 'New Lead' || lead.stage === 'Contacted') ? 'Quote Sent' : lead.stage;
+    await Lead.updateOne({ _id: leadId }, { hasQuotation: true, stage: newStage });
 
     res.status(201).json(quotation);
   } catch (error) {
@@ -119,43 +113,38 @@ const getLeadQuotations = async (req, res) => {
 // @access  Private
 const updateQuotation = async (req, res) => {
   try {
-    const { items, gstEnabled, gstPercentage, notes, status, leadId, discount, shipping, terms } = req.body;
+    const { items, gstEnabled, gstPercentage, notes, status, leadId } = req.body;
 
     const quotation = await Quotation.findById(req.params.id);
     if (!quotation) return res.status(404).json({ message: 'Quotation not found' });
 
     if (notes !== undefined) quotation.notes = notes;
     if (status) quotation.status = status;
-    if (terms !== undefined) quotation.terms = terms;
 
     if (leadId !== undefined) {
       quotation.lead = leadId || null;
       if (leadId) {
         const lead = await Lead.findById(leadId);
         if (lead) {
-          const newStage = 'Quote Sent';
-          const newStatus = 'Quotation Sent';
-          await Lead.updateOne({ _id: leadId }, { hasQuotation: true, stage: newStage, status: newStatus });
+          const newStage = (lead.stage === 'New Lead' || lead.stage === 'Contacted') ? 'Quote Sent' : lead.stage;
+          await Lead.updateOne({ _id: leadId }, { hasQuotation: true, stage: newStage });
         }
       }
     }
 
-    // Recalculate totals
+    // Recalculate totals if items or GST changed
     const newItems = items !== undefined ? items : quotation.items;
     const newGstEnabled = gstEnabled !== undefined ? !!gstEnabled : quotation.gstEnabled;
     const newGstPct = gstPercentage !== undefined ? Number(gstPercentage) : quotation.gstPercentage;
-    const newDiscount = discount !== undefined ? Number(discount) : (quotation.discount || 0);
-    const newShipping = shipping !== undefined ? Number(shipping) : (quotation.shipping || 0);
 
-    quotation.items = newItems;
-    quotation.gstEnabled = newGstEnabled;
-    quotation.gstPercentage = newGstPct;
-    quotation.discount = newDiscount;
-    quotation.shipping = newShipping;
-    
-    quotation.subTotal = newItems.reduce((acc, item) => acc + Number(item.amount), 0);
-    quotation.gstAmount = newGstEnabled ? (quotation.subTotal - newDiscount) * (newGstPct / 100) : 0;
-    quotation.total = quotation.subTotal - newDiscount + quotation.gstAmount + newShipping;
+    if (items !== undefined || gstEnabled !== undefined || gstPercentage !== undefined) {
+      quotation.items = newItems;
+      quotation.gstEnabled = newGstEnabled;
+      quotation.gstPercentage = newGstPct;
+      quotation.subTotal = newItems.reduce((acc, item) => acc + Number(item.amount), 0);
+      quotation.gstAmount = newGstEnabled ? quotation.subTotal * (newGstPct / 100) : 0;
+      quotation.total = quotation.subTotal + quotation.gstAmount;
+    }
 
     await quotation.save();
     res.json(quotation);
@@ -227,15 +216,13 @@ const generateQuotationPDF = async (req, res) => {
       gstEnabled: quotation.gstEnabled,
       gstPercentage: quotation.gstPercentage,
       gstAmount: quotation.gstAmount,
-      discount: quotation.discount || 0,
-      shipping: quotation.shipping || 0,
       total: quotation.total,
       notes: quotation.notes ? [quotation.notes] : [
         'Includes all approved materials and fabrication costs.',
         'Delivery timeline starts after advance payment.',
         'Any additional changes in scope will be charged separately.'
       ],
-      terms: quotation.terms && quotation.terms.length > 0 ? quotation.terms : [
+      terms: [
         '50% advance payment required to initiate the work.',
         'Remaining payment before final handover.',
         'Design revisions after approval will be chargeable.',
@@ -245,16 +232,22 @@ const generateQuotationPDF = async (req, res) => {
       logoUrl: settings.websiteLogo,
       signatureUrl: settings.ownerSignature,
       stampUrl: settings.companyStamp,
-      upiId: settings.upiId,
-      upiQrUrl: settings.upiQrCode,
-      bankAccountName: settings.bankAccountName,
-      bankName: settings.bankName,
-      bankAccountNumber: settings.bankAccountNumber,
-      bankIfscCode: settings.bankIfscCode,
-      gstNumber: settings.gstNumber,
     };
 
-    const pdfBuffer = await generatePDF(data);
+    const htmlContent = generatePDFHTML(data);
+
+    const browser = await puppeteer.launch({
+      headless: 'new',
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
+    const page = await browser.newPage();
+    await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: { top: '0', right: '0', bottom: '0', left: '0' }
+    });
+    await browser.close();
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="Quotation_${quotation.quotationNumber}.pdf"`);

@@ -62,21 +62,10 @@ const quotationSchema = new mongoose.Schema({
     required: true,
     default: 0
   },
-  discount: {
-    type: Number,
-    default: 0
-  },
-  shipping: {
-    type: Number,
-    default: 0
-  },
   total: {
     type: Number,
     required: true
   },
-  terms: [{
-    type: String
-  }],
   date: {
     type: Date,
     default: Date.now
@@ -87,4 +76,5 @@ const quotationSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 const Quotation = mongoose.model('Quotation', quotationSchema);
+
 module.exports = Quotation;

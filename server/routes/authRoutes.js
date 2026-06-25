@@ -5,9 +5,7 @@ const {
   loginWithOtp,
   getUserProfile,
   forgotPassword,
-  resetPassword,
-  changePassword,
-  updateUserProfile
+  resetPassword
 } = require('../controllers/authController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -19,7 +17,5 @@ router.post('/login-otp', loginWithOtp);
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
 router.get('/profile', protect, getUserProfile);
-router.put('/profile', protect, updateUserProfile);
-router.put('/change-password', protect, changePassword);
 
 module.exports = router;

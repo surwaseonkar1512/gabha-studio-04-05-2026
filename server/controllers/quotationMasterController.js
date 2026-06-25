@@ -1,5 +1,6 @@
 const QuotationMaster = require('../models/QuotationMaster');
-const { generatePDF } = require('../utils/pdfKitGenerator');
+const puppeteer = require('puppeteer');
+const { generatePDFHTML } = require('../utils/pdfTemplate');
 const SiteSettings = require('../models/SiteSettings');
 
 // @desc    Get all quotation templates
@@ -58,7 +59,7 @@ const updateMaster = async (req, res) => {
     if (items && Array.isArray(items)) {
       master.items = items;
     }
-
+    
     if (gstPercentage !== undefined) {
       master.gstPercentage = gstPercentage;
     }
@@ -98,7 +99,7 @@ const generateMasterPDF = async (req, res) => {
     }
 
     const settings = await SiteSettings.findOne() || {};
-
+    
     let subTotal = 0;
     const items = master.items.map(item => {
       subTotal += item.amount;
@@ -115,7 +116,7 @@ const generateMasterPDF = async (req, res) => {
     const total = subTotal + gstAmt;
 
     const data = {
-      type: 'QUOTATION',
+      type: 'QUOTATION TEMPLATE',
       documentNo: master.name,
       date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }),
       preparedBy: 'Gabha Studio',
@@ -133,16 +134,22 @@ const generateMasterPDF = async (req, res) => {
       logoUrl: settings.websiteLogo,
       signatureUrl: settings.ownerSignature,
       stampUrl: settings.companyStamp,
-      upiId: settings.upiId,
-      upiQrUrl: settings.upiQrCode,
-      bankAccountName: settings.bankAccountName,
-      bankName: settings.bankName,
-      bankAccountNumber: settings.bankAccountNumber,
-      bankIfscCode: settings.bankIfscCode,
-      gstNumber: settings.gstNumber,
     };
 
-    const pdfBuffer = await generatePDF(data);
+    const htmlContent = generatePDFHTML(data);
+
+    const browser = await puppeteer.launch({
+      headless: 'new',
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
+    const page = await browser.newPage();
+    await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: { top: '0', right: '0', bottom: '0', left: '0' }
+    });
+    await browser.close();
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="Template_${master.name.replace(/\s+/g, '_')}.pdf"`);
