@@ -2,6 +2,7 @@ const Booking = require('../models/Booking');
 const Lead = require('../models/Lead');
 const Expense = require('../models/Expense');
 const Product = require('../models/Product');
+const Quotation = require('../models/Quotation');
 
 // @desc    Get dashboard analytics
 // @route   GET /api/dashboard
@@ -322,6 +323,44 @@ const getDashboardData = async (req, res) => {
   }
 };
 
+const getCustomersList = async (req, res) => {
+  try {
+    const leads = await Lead.find();
+    const bookings = await Booking.find();
+    const quotations = await Quotation.find();
+
+    const customers = leads.map(l => {
+      // Find related bookings
+      const leadBookings = bookings.filter(b => b.lead && b.lead.toString() === l._id.toString());
+      // Find related quotations
+      const leadQuotations = quotations.filter(q => q.lead && q.lead.toString() === l._id.toString());
+
+      const totalBooked = leadBookings.reduce((sum, b) => sum + b.totalAmount, 0);
+      const totalPaid = leadBookings.reduce((sum, b) => sum + b.paidAmount, 0);
+
+      return {
+        name: l.name,
+        phone: l.phone,
+        email: l.email || 'N/A',
+        location: l.location || 'N/A',
+        leadsCount: 1,
+        quotesCount: leadQuotations.length,
+        bookingsCount: leadBookings.length,
+        totalPaid,
+        totalBooked,
+        latestStage: l.stage,
+        createdAt: l.createdAt
+      };
+    });
+
+    res.json(customers);
+  } catch (error) {
+    console.error('Error fetching customers list:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
-  getDashboardData
+  getDashboardData,
+  getCustomersList
 };

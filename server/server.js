@@ -58,6 +58,8 @@ app.use('/api/quotation-masters', require('./routes/quotationMasterRoutes'));
 app.use('/api/bookings', require('./routes/bookingRoutes'));
 app.use('/api/expenses', require('./routes/expenseRoutes'));
 app.use('/api/dashboard', require('./routes/dashboardRoutes'));
+app.use('/api/contacts', require('./routes/contactsRoutes'));
+app.use('/api/newsletter', require('./routes/newsletterRoutes'));
 app.use('/api/cms', require('./routes/cmsRoutes'));
 
 // Error handling middleware
