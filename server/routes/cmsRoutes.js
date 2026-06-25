@@ -45,7 +45,9 @@ const {
   updateReviewStatus,
   deleteReview,
   getProductReviews,
-  createProductReview
+  createProductReview,
+  getSpaceByGabha,
+  updateSpaceByGabha
 } = require('../controllers/cmsController');
 
 const { protect, checkPermission } = require('../middleware/authMiddleware');
@@ -62,6 +64,7 @@ router.get('/products', getProducts);
 router.get('/instagram', getInstagramItems);
 router.get('/testimonials', getTestimonials);
 router.get('/settings', getSiteSettings);
+router.get('/space-by-gabha', getSpaceByGabha);
 
 // Storefront & Reviews public access
 router.get('/products/storefront', getStorefrontProducts);
@@ -124,5 +127,8 @@ router.delete('/testimonials/:id', checkPermission('cms', 'delete'), deleteTesti
 
 // Site Settings
 router.put('/settings', checkPermission('cms', 'edit'), updateSiteSettings);
+
+// Space By Gabha
+router.put('/space-by-gabha', checkPermission('cms', 'edit'), updateSpaceByGabha);
 
 module.exports = router;

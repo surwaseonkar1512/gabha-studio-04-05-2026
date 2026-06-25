@@ -249,6 +249,7 @@ const DashboardLayout = () => {
 
   const cmsItems = [
     { name: 'Banners', path: '/admin/cms/banners', icon: <Layers size={18} />, module: 'cms' },
+    { name: 'Space By Gabha', path: '/admin/cms/space-by-gabha', icon: <Layers size={18} />, module: 'cms' },
     { name: 'About Us', path: '/admin/cms/about', icon: <Info size={18} />, module: 'cms' },
     { name: 'Gallery', path: '/admin/cms/gallery', icon: <Image size={18} />, module: 'cms' },
     { name: 'Categories', path: '/admin/cms/categories', icon: <Palette size={18} />, module: 'categories' },

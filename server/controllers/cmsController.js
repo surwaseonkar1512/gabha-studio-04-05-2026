@@ -8,6 +8,7 @@ const ProductAnalytics = require('../models/ProductAnalytics');
 const InstagramGallery = require('../models/InstagramGallery');
 const Testimonial = require('../models/Testimonial');
 const SiteSettings = require('../models/SiteSettings');
+const SpaceByGabha = require('../models/SpaceByGabha');
 const cloudinary = require('../config/cloudinary');
 
 // Helper to upload buffer to Cloudinary
@@ -800,6 +801,181 @@ const createProductReview = async (req, res) => {
   }
 };
 
+const getSpaceByGabha = async (req, res) => {
+  try {
+    let space = await SpaceByGabha.findOne();
+    if (!space) {
+      space = await SpaceByGabha.create({
+        page_name: "Space By Gabha",
+        slug: "/space-by-gabha",
+        status: "published",
+        seo: {
+          meta_title: "Space By Gabha | Events, Retreats & Experiences",
+          meta_description: "A beautiful destination near Kasarsai Dam for weddings, workshops, retreats and community events.",
+          keywords: [
+            "Space By Gabha",
+            "Event Space Pune",
+            "Wedding Venue",
+            "Creative Retreat",
+            "Corporate Retreat"
+          ]
+        },
+        hero_section: {
+          is_active: true,
+          background_image: "kasarsai_dam_aerial.jpg",
+          mobile_background_image: "kasarsai_dam_mobile.jpg",
+          heading: "SPACE BY GABHA",
+          subheading: "Where people, nature & experiences meet.",
+          location: "Near Kasarsai Dam, Pune",
+          cta_button: {
+            text: "EXPLORE THE SPACE",
+            url: "#explore"
+          }
+        },
+        purpose_section: {
+          is_active: true,
+          heading: "Every Space Has A Purpose.",
+          description: "Some spaces are built with walls. Some are shaped by the people who gather within them. Space by Gabha was created for moments that deserve room to breathe.",
+          cards: [
+            {
+              title: "Celebrate",
+              image: "celebrate_wedding.jpg",
+              items: [
+                "Destination Weddings",
+                "Private Gatherings",
+                "Special Occasions"
+              ],
+              button_text: "Explore",
+              button_url: "/celebrate",
+              sort_order: 1
+            },
+            {
+              title: "Create",
+              image: "create_pottery.jpg",
+              items: [
+                "Pottery Workshops",
+                "Art Sessions",
+                "Creative Retreats"
+              ],
+              button_text: "Explore",
+              button_url: "/create",
+              sort_order: 2
+            },
+            {
+              title: "Connect",
+              image: "connect_event.jpg",
+              items: [
+                "Corporate Retreats",
+                "Meetups",
+                "Community Events"
+              ],
+              button_text: "Explore",
+              button_url: "/connect",
+              sort_order: 3
+            }
+          ]
+        },
+        timeline_section: {
+          is_active: true,
+          heading: "A Space That Moves With You",
+          description: "",
+          timeline_items: [
+            {
+              title: "Morning",
+              subtitle: "Workshops begin",
+              icon: "sunrise",
+              image: "morning_workshop.jpg"
+            },
+            {
+              title: "Afternoon",
+              subtitle: "Ideas take shape",
+              icon: "sun",
+              image: "afternoon_gathering.jpg"
+            },
+            {
+              title: "Evening",
+              subtitle: "Music fills the air",
+              icon: "sunset",
+              image: "evening_music.jpg"
+            },
+            {
+              title: "Night",
+              subtitle: "Celebrations continue",
+              icon: "moon",
+              image: "night_celebration.jpg"
+            }
+          ]
+        },
+        nature_section: {
+          is_active: true,
+          heading: "Framed By Nature",
+          description: "Located near the serene Kasarsai Dam, the space offers open landscapes, natural surroundings, and an atmosphere that transforms every gathering into a memorable experience.",
+          hero_image: "nature_banner.jpg",
+          gallery: [
+            {
+              image: "nature_frame_1.jpg",
+              alt: "Archway framing landscape"
+            },
+            {
+              image: "pottery_workshop.jpg",
+              alt: "Pottery workshop in progress"
+            },
+            {
+              image: "night_event_lights.jpg",
+              alt: "Evening event with string lights"
+            },
+            {
+              image: "outdoor_gathering.jpg",
+              alt: "Outdoor gathering setup"
+            },
+            {
+              image: "celebration_lights.jpg",
+              alt: "Celebration under lights"
+            }
+          ]
+        },
+        visit_section: {
+          is_active: true,
+          heading: "Visit The Space",
+          description: "Book a site visit and experience the beauty of Space By Gabha.",
+          cta_button: {
+            text: "BOOK A SITE VISIT",
+            url: "/contact"
+          },
+          location_info: {
+            latitude: 18.6298,
+            longitude: 73.7997,
+            address_line_1: "Gat No. 326 & 337",
+            address_line_2: "Maval - Hinjewadi - Pachane Road",
+            landmark: "Near Kasarsai Dam",
+            city: "Pune",
+            state: "Maharashtra",
+            country: "India",
+            postal_code: "412306"
+          },
+          map: {
+            provider: "google_maps",
+            embed_url: "",
+            location_name: "Space By Gabha"
+          }
+        }
+      });
+    }
+    res.status(200).json(space);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const updateSpaceByGabha = async (req, res) => {
+  try {
+    const space = await SpaceByGabha.findOneAndUpdate({}, req.body, { new: true, upsert: true });
+    res.status(200).json(space);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
 module.exports = {
   uploadSingle,
   uploadMultiple,
@@ -845,5 +1021,7 @@ module.exports = {
   updateReviewStatus,
   deleteReview,
   getProductReviews,
-  createProductReview
+  createProductReview,
+  getSpaceByGabha,
+  updateSpaceByGabha
 };

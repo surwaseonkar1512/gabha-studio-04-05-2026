@@ -14,6 +14,7 @@ const PublicLayout = () => {
     { name: "Artwork", path: "/artwork" },
     { name: "Gallery", path: "/gallery" },
     { name: "Our Story", path: "/about" },
+    { name: "Space By Gabha", path: "/space-by-gabha" },
     { name: "Start a project", path: "/contact" },
   ];
 
@@ -58,11 +59,26 @@ const PublicLayout = () => {
   }, [settings]);
 
   const isActive = (path: string) => location.pathname === path;
-  const isLightHeader =
-    location.pathname === "/artwork" ||
-    location.pathname === "/gallery" ||
-    location.pathname === "/contact" ||
-    location.pathname.startsWith("/product/");
+
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 30) {
+        setIsScrolled(true);
+      } else {
+        setIsScrolled(false);
+      }
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const isTransparentAllowed =
+    location.pathname === "/" ||
+    location.pathname === "/space-by-gabha";
+
+  const isLightHeader = !isTransparentAllowed || isScrolled;
 
   return (
     <div className="min-h-screen flex flex-col font-sans bg-transparent text-white">

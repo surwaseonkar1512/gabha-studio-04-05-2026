@@ -18,10 +18,12 @@ import Contact from './pages/public/Contact';
 import Artwork from './pages/public/Artwork';
 import ProductDetails from './pages/public/ProductDetails';
 import Gallery from './pages/public/Gallery';
+import SpaceByGabha from './pages/public/SpaceByGabha';
 
 // CMS Pages
 import CmsHub from './pages/cms/CmsHub';
 import BannersModule from './pages/cms/BannersModule';
+import SpaceByGabhaModule from './pages/cms/SpaceByGabhaModule';
 import AboutUsModule from './pages/cms/AboutUsModule';
 import GalleryModule from './pages/cms/GalleryModule';
 import CategoryModule from './pages/cms/CategoryModule';
@@ -51,6 +53,7 @@ function App() {
           <Route path="/artwork" element={<Artwork />} />
           <Route path="/product/:id" element={<ProductDetails />} />
           <Route path="/gallery" element={<Gallery />} />
+          <Route path="/space-by-gabha" element={<SpaceByGabha />} />
         </Route>
 
         {/* Auth Route */}
@@ -76,6 +79,7 @@ function App() {
           {/* CMS Submenu Routes */}
           <Route path="cms" element={<CmsHub />} />
           <Route path="cms/banners" element={<BannersModule />} />
+          <Route path="cms/space-by-gabha" element={<SpaceByGabhaModule />} />
           <Route path="cms/about" element={<AboutUsModule />} />
           <Route path="cms/gallery" element={<GalleryModule />} />
           <Route path="cms/categories" element={<CategoryModule />} />

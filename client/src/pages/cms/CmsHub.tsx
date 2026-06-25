@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Layers, Info, Image, Palette, CreditCard, FileText, Settings, ArrowRight, Clock } from 'lucide-react';
+import { Layers, Info, Image, Palette, CreditCard, FileText, Settings, ArrowRight, Clock, MapPin } from 'lucide-react';
 
 const CmsHub = () => {
   const modules = [
@@ -9,6 +9,13 @@ const CmsHub = () => {
       description: 'Manage homepage hero banners, mobile banners, subtitles, descriptions, and CTA links.',
       path: '/admin/cms/banners',
       icon: <Layers className="h-6 w-6 text-amber-500" />,
+      color: 'border-amber-500/20 bg-amber-500/5'
+    },
+    {
+      title: 'Space By Gabha',
+      description: 'Configure details, purpose cards, landscape galleries, chronological event timelines, and locations.',
+      path: '/admin/cms/space-by-gabha',
+      icon: <MapPin className="h-6 w-6 text-amber-500" />,
       color: 'border-amber-500/20 bg-amber-500/5'
     },
     {
