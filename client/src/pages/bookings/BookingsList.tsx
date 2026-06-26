@@ -385,22 +385,22 @@ const BookingsList = () => {
               statusFilter !== "All" ||
               paymentFilter !== "All" ||
               deliveryFilter !== "All") && (
-              <button
-                onClick={() => {
-                  setSearchName("");
-                  setSearchProduct("");
-                  setSearchLocation("");
-                  setStartDate("");
-                  setEndDate("");
-                  setStatusFilter("All");
-                  setPaymentFilter("All");
-                  setDeliveryFilter("All");
-                }}
-                className="text-xs text-red-600 dark:text-red-400 font-bold hover:underline mb-2.5 shrink-0"
-              >
-                Reset
-              </button>
-            )}
+                <button
+                  onClick={() => {
+                    setSearchName("");
+                    setSearchProduct("");
+                    setSearchLocation("");
+                    setStartDate("");
+                    setEndDate("");
+                    setStatusFilter("All");
+                    setPaymentFilter("All");
+                    setDeliveryFilter("All");
+                  }}
+                  className="text-xs text-red-600 dark:text-red-400 font-bold hover:underline mb-2.5 shrink-0"
+                >
+                  Reset
+                </button>
+              )}
           </div>
         </div>
 

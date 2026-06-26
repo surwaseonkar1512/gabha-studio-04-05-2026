@@ -21,6 +21,8 @@ node_modules/
 
 # Optional npm cache directory
 .npm
+.cache/
+
 
 # dotenv environment variable files
 # .env
